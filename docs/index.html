@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zylosis HRMS API Docs</title>
+    <meta
+      name="description"
+      content="API documentation and frontend usage guide for the Zylosis HRMS backend."
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f8fafc;
+        --panel: #ffffff;
+        --ink: #0f172a;
+        --muted: #475569;
+        --line: #d9e2ec;
+        --brand: #0f766e;
+        --brand-dark: #115e59;
+        --accent: #7c3aed;
+        --code-bg: #111827;
+        --code-ink: #e5e7eb;
+        --soft: #ecfeff;
+        --warn: #fff7ed;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.6;
+      }
+
+      a {
+        color: var(--brand-dark);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      aside {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow: auto;
+        padding: 28px 22px;
+        background: #ffffff;
+        border-right: 1px solid var(--line);
+      }
+
+      .brand {
+        margin-bottom: 24px;
+      }
+
+      .brand strong {
+        display: block;
+        font-size: 18px;
+      }
+
+      .brand span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      nav a {
+        display: block;
+        padding: 8px 10px;
+        border-radius: 6px;
+        color: #334155;
+        font-size: 14px;
+      }
+
+      nav a:hover {
+        background: #f1f5f9;
+        text-decoration: none;
+      }
+
+      main {
+        min-width: 0;
+      }
+
+      .hero {
+        padding: 54px clamp(24px, 5vw, 72px) 36px;
+        background:
+          linear-gradient(120deg, rgba(15, 118, 110, 0.08), transparent 40%),
+          linear-gradient(90deg, #ffffff, #f8fafc);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--brand-dark);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        max-width: 900px;
+        margin: 0;
+        font-size: clamp(34px, 5vw, 58px);
+        line-height: 1.05;
+        letter-spacing: 0;
+      }
+
+      .hero p {
+        max-width: 780px;
+        margin: 18px 0 0;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .content {
+        max-width: 1040px;
+        padding: 34px clamp(24px, 5vw, 72px) 80px;
+      }
+
+      section {
+        margin: 0 0 44px;
+      }
+
+      h2 {
+        margin: 0 0 14px;
+        font-size: 28px;
+        line-height: 1.2;
+      }
+
+      h3 {
+        margin: 28px 0 10px;
+        font-size: 20px;
+      }
+
+      p {
+        color: var(--muted);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 14px;
+      }
+
+      .stat,
+      .note {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        border-radius: 8px;
+        padding: 16px;
+      }
+
+      .stat strong {
+        display: block;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .stat span {
+        display: block;
+        margin-top: 4px;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .note {
+        background: var(--soft);
+        border-color: #a5f3fc;
+      }
+
+      .warning {
+        background: var(--warn);
+        border-color: #fed7aa;
+      }
+
+      code {
+        font-family:
+          "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 0.92em;
+      }
+
+      pre {
+        margin: 12px 0 18px;
+        padding: 16px;
+        overflow: auto;
+        background: var(--code-bg);
+        color: var(--code-ink);
+        border-radius: 8px;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      pre code {
+        color: inherit;
+      }
+
+      .endpoint {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin: 4px 0 10px;
+        padding: 8px 10px;
+        background: #ecfdf5;
+        border: 1px solid #99f6e4;
+        border-radius: 6px;
+        font-family:
+          "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 14px;
+        color: #064e3b;
+      }
+
+      .method {
+        color: var(--accent);
+        font-weight: 800;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      th,
+      td {
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+        font-size: 14px;
+      }
+
+      th {
+        background: #f1f5f9;
+        color: #334155;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .routes {
+        columns: 2;
+        column-gap: 28px;
+      }
+
+      .routes code {
+        display: block;
+        margin-bottom: 6px;
+        break-inside: avoid;
+      }
+
+      footer {
+        padding-top: 28px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      @media (max-width: 900px) {
+        .shell {
+          display: block;
+        }
+
+        aside {
+          position: relative;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        nav {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 4px;
+        }
+
+        .routes {
+          columns: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside>
+        <div class="brand">
+          <strong>Zylosis HRMS</strong>
+          <span>Backend API docs</span>
+        </div>
+        <nav aria-label="Documentation navigation">
+          <a href="#base-urls">Base URLs</a>
+          <a href="#response-format">Response Format</a>
+          <a href="#fetch-helper">Frontend Fetch Helper</a>
+          <a href="#authentication">Authentication</a>
+          <a href="#register">Register</a>
+          <a href="#verify-email">Verify Email</a>
+          <a href="#login">Login</a>
+          <a href="#google-login">Google Login</a>
+          <a href="#session">Session APIs</a>
+          <a href="#resources">Resource Routes</a>
+          <a href="#environment">Environment</a>
+          <a href="#verification">Local Verification</a>
+        </nav>
+      </aside>
+
+      <main>
+        <header class="hero">
+          <p class="eyebrow">API Docs And Usage</p>
+          <h1>Production-oriented HRMS API guide for frontend integration.</h1>
+          <p>
+            Covers Redis-backed sessions, email verification before account
+            creation, Google OAuth, scaffold resource routes, and frontend
+            request examples.
+          </p>
+        </header>
+
+        <div class="content">
+          <section id="base-urls">
+            <h2>Base URLs</h2>
+            <div class="grid">
+              <div class="stat">
+                <strong>Backend API</strong>
+                <span>http://localhost:4000/api</span>
+              </div>
+              <div class="stat">
+                <strong>Health</strong>
+                <span>http://localhost:4000/health</span>
+              </div>
+              <div class="stat">
+                <strong>Frontend</strong>
+                <span>http://localhost:5173</span>
+              </div>
+            </div>
+            <p>
+              The backend uses JSON for normal API responses and HTTP-only
+              cookies for authentication sessions.
+            </p>
+          </section>
+
+          <section id="response-format">
+            <h2>Response Format</h2>
+            <h3>Success</h3>
+            <pre><code>{
+  "success": true,
+  "message": "Request completed successfully",
+  "data": {},
+  "meta": {}
+}</code></pre>
+            <h3>Error</h3>
+            <pre><code>{
+  "success": false,
+  "message": "Validation failed",
+  "details": [
+    {
+      "path": "email",
+      "message": "Invalid email"
+    }
+  ]
+}</code></pre>
+          </section>
+
+          <section id="fetch-helper">
+            <h2>Frontend Fetch Helper</h2>
+            <p>
+              Use <code>credentials: "include"</code> for every authenticated
+              request. This allows the browser to send the Redis-backed session
+              cookie.
+            </p>
+            <pre><code>const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000/api";
+
+export async function apiRequest&lt;T&gt;(
+  path: string,
+  options: RequestInit = {},
+): Promise&lt;T&gt; {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(payload?.message ?? "API request failed");
+  }
+
+  return payload;
+}</code></pre>
+          </section>
+
+          <section id="authentication">
+            <h2>Authentication</h2>
+            <div class="note">
+              <p>
+                Authentication is server-session based. Sessions live in Redis
+                and the browser receives an HTTP-only cookie named by
+                <code>SESSION_NAME</code>.
+              </p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Setting</th>
+                  <th>Behavior</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Default lifetime</td>
+                  <td>8 hours</td>
+                </tr>
+                <tr>
+                  <td>Remember me lifetime</td>
+                  <td>30 days</td>
+                </tr>
+                <tr>
+                  <td>Cookie</td>
+                  <td>HTTP-only session cookie</td>
+                </tr>
+                <tr>
+                  <td>Frontend requirement</td>
+                  <td><code>credentials: "include"</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section id="register">
+            <h2>Register</h2>
+            <p class="endpoint">
+              <span class="method">POST</span> /api/auth/register
+            </p>
+            <p>
+              Registration does not create the database account immediately. It
+              stores a short-lived pending registration in Redis, sends an email
+              verification link, and returns <code>202 Accepted</code>. The
+              organization and user rows are created only after verification.
+            </p>
+            <h3>Request</h3>
+            <pre><code>{
+  "organizationName": "Acme HR",
+  "organizationEmail": "admin@acme.com",
+  "password": "strong-password",
+  "termsAccepted": true,
+  "rememberMe": false
+}</code></pre>
+            <h3>Frontend Usage</h3>
+            <pre><code>await apiRequest("/auth/register", {
+  method: "POST",
+  body: JSON.stringify({
+    organizationName,
+    organizationEmail,
+    password,
+    termsAccepted: true,
+    rememberMe: false,
+  }),
+});</code></pre>
+            <h3>Response</h3>
+            <pre><code>{
+  "success": true,
+  "message": "Verification email sent. Please verify your email to complete registration.",
+  "data": {
+    "email": "admin@acme.com",
+    "expiresInMinutes": 30
+  }
+}</code></pre>
+          </section>
+
+          <section id="verify-email">
+            <h2>Verify Email</h2>
+            <p class="endpoint">
+              <span class="method">GET</span>
+              /api/auth/verify-email?token=&lt;verification-token&gt;
+            </p>
+            <p>The verification link is sent to the registering user's email.</p>
+            <ul>
+              <li>Backend creates the organization and owner user.</li>
+              <li>Backend deletes the pending registration from Redis.</li>
+              <li>Backend creates the same HTTP-only session cookie used by login.</li>
+              <li>
+                Backend redirects to <code>FRONTEND_EMAIL_VERIFIED_URL</code>
+                when configured.
+              </li>
+            </ul>
+            <h3>JSON Response When No Redirect Is Configured</h3>
+            <pre><code>{
+  "success": true,
+  "message": "Email verified and account created successfully",
+  "data": {
+    "organization": {
+      "id": 1,
+      "name": "Acme HR",
+      "email": "admin@acme.com"
+    },
+    "user": {
+      "id": 1,
+      "organizationId": 1,
+      "firstName": "Admin",
+      "lastName": "User",
+      "email": "admin@acme.com",
+      "role": "owner",
+      "status": "active",
+      "isAdmin": true
+    }
+  }
+}</code></pre>
+          </section>
+
+          <section id="login">
+            <h2>Login</h2>
+            <p class="endpoint">
+              <span class="method">POST</span> /api/auth/login
+            </p>
+            <h3>Request</h3>
+            <pre><code>{
+  "email": "admin@acme.com",
+  "password": "strong-password",
+  "rememberMe": true
+}</code></pre>
+            <h3>Frontend Usage</h3>
+            <pre><code>await apiRequest("/auth/login", {
+  method: "POST",
+  body: JSON.stringify({
+    email,
+    password,
+    rememberMe,
+  }),
+});</code></pre>
+            <h3>Response</h3>
+            <pre><code>{
+  "success": true,
+  "message": "Logged in successfully",
+  "data": {
+    "user": {
+      "id": 1,
+      "organizationId": 1,
+      "firstName": "Admin",
+      "lastName": "User",
+      "email": "admin@acme.com",
+      "role": "owner",
+      "status": "active",
+      "isAdmin": true
+    }
+  }
+}</code></pre>
+          </section>
+
+          <section id="google-login">
+            <h2>Google Login</h2>
+            <p class="endpoint">
+              <span class="method">GET</span> /api/auth/google
+            </p>
+            <p class="endpoint">
+              <span class="method">GET</span> /api/auth/google/callback
+            </p>
+            <h3>Frontend Usage</h3>
+            <pre><code>window.location.href = "http://localhost:4000/api/auth/google";</code></pre>
+            <h3>With Remember Me</h3>
+            <pre><code>window.location.href = "http://localhost:4000/api/auth/google?rememberMe=true";</code></pre>
+            <h3>Flow</h3>
+            <ol>
+              <li>Frontend redirects to <code>/api/auth/google</code>.</li>
+              <li>Backend stores OAuth <code>state</code> in the Redis session.</li>
+              <li>Google redirects to <code>/api/auth/google/callback</code>.</li>
+              <li>
+                Backend validates <code>state</code>, exchanges the OAuth code,
+                verifies the email, and creates the app session.
+              </li>
+              <li>
+                Backend redirects to <code>FRONTEND_AUTH_SUCCESS_URL</code>.
+              </li>
+            </ol>
+          </section>
+
+          <section id="session">
+            <h2>Session APIs</h2>
+            <h3>Current Session</h3>
+            <p class="endpoint">
+              <span class="method">GET</span> /api/auth/me
+            </p>
+            <pre><code>const session = await apiRequest&lt;{ data: { user: unknown } }&gt;("/auth/me");</code></pre>
+            <h3>Refresh Session</h3>
+            <p class="endpoint">
+              <span class="method">POST</span> /api/auth/refresh
+            </p>
+            <p>
+              This currently returns the active session user and requires an
+              existing session.
+            </p>
+            <h3>Logout</h3>
+            <p class="endpoint">
+              <span class="method">POST</span> /api/auth/logout
+            </p>
+            <pre><code>await apiRequest("/auth/logout", {
+  method: "POST",
+});</code></pre>
+          </section>
+
+          <section id="resources">
+            <h2>Resource Routes</h2>
+            <p>
+              These module routes are scaffolded with a consistent CRUD shape
+              and are ready for real repository implementations.
+            </p>
+            <div class="routes">
+              <code>/api/organizations</code>
+              <code>/api/users</code>
+              <code>/api/departments</code>
+              <code>/api/locations</code>
+              <code>/api/designations</code>
+              <code>/api/teams</code>
+              <code>/api/employees</code>
+              <code>/api/payroll</code>
+              <code>/api/expenses</code>
+              <code>/api/billing</code>
+              <code>/api/inbox</code>
+              <code>/api/leaves</code>
+              <code>/api/calendar</code>
+              <code>/api/recruitment</code>
+              <code>/api/integrations</code>
+            </div>
+
+            <h3>CRUD Shape</h3>
+            <pre><code>GET    /api/&lt;resource&gt;
+GET    /api/&lt;resource&gt;/:id
+POST   /api/&lt;resource&gt;
+PUT    /api/&lt;resource&gt;/:id
+DELETE /api/&lt;resource&gt;/:id</code></pre>
+
+            <h3>List Query Parameters</h3>
+            <pre><code>organizationId?: number
+search?: string
+page?: number
+limit?: number</code></pre>
+
+            <h3>List Example</h3>
+            <pre><code>const employees = await apiRequest("/employees?organizationId=1&page=1&limit=20");</code></pre>
+
+            <h3>Create Example</h3>
+            <pre><code>await apiRequest("/employees", {
+  method: "POST",
+  body: JSON.stringify({
+    firstName: "Asha",
+    lastName: "Mehta",
+    email: "asha@example.com",
+  }),
+});</code></pre>
+          </section>
+
+          <section id="environment">
+            <h2>Environment Required For API Usage</h2>
+            <pre><code>DATABASE_URL=postgres://user:password@localhost:5432/zylosis_hrms
+REDIS_URL=redis://localhost:6379
+SESSION_SECRET=replace-with-a-minimum-32-character-session-secret
+SESSION_NAME=hrms.sid
+PORT=4000
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:5173
+
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_CALLBACK_URL=http://localhost:4000/api/auth/google/callback
+FRONTEND_AUTH_SUCCESS_URL=http://localhost:5173/dashboard
+FRONTEND_AUTH_FAILURE_URL=http://localhost:5173/login?error=google_auth_failed
+FRONTEND_EMAIL_VERIFIED_URL=http://localhost:5173/login?verified=true
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=smtp-user
+SMTP_PASS=smtp-password
+MAIL_FROM=Zylosis HRMS &lt;no-reply@example.com&gt;
+EMAIL_VERIFICATION_TTL_MINUTES=30</code></pre>
+          </section>
+
+          <section id="verification">
+            <h2>Local Verification</h2>
+            <pre><code>cd Backend
+npm run build
+npm run test</code></pre>
+            <p>Run Redis and Postgres before starting the server:</p>
+            <pre><code>npm run dev</code></pre>
+          </section>
+
+          <footer>
+            Static HTML generated from <code>Backend/docs/API.md</code>. This
+            folder is ready to be published through GitHub Pages.
+          </footer>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
