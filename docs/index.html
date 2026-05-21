@@ -317,7 +317,9 @@
           <a href="#session">Session APIs</a>
           <a href="#resources">Resource Routes</a>
           <a href="#environment">Environment</a>
+          <a href="#deployment">Deployment</a>
           <a href="#verification">Local Verification</a>
+          <a href="#docs-hosting">Docs Hosting</a>
         </nav>
       </aside>
 
@@ -337,21 +339,37 @@
             <h2>Base URLs</h2>
             <div class="grid">
               <div class="stat">
-                <strong>Backend API</strong>
+                <strong>Local Backend API</strong>
                 <span>http://localhost:4000/api</span>
               </div>
               <div class="stat">
-                <strong>Health</strong>
+                <strong>Local Backend Auth Alias</strong>
+                <span>http://localhost:4000/auth</span>
+              </div>
+              <div class="stat">
+                <strong>Local Health</strong>
                 <span>http://localhost:4000/health</span>
               </div>
               <div class="stat">
-                <strong>Frontend</strong>
+                <strong>Local Frontend</strong>
                 <span>http://localhost:5173</span>
+              </div>
+              <div class="stat">
+                <strong>Production Frontend</strong>
+                <span>https://hrms-product-i2k7.vercel.app</span>
+              </div>
+              <div class="stat">
+                <strong>Production Backend</strong>
+                <span>https://backend-url.example.com</span>
               </div>
             </div>
             <p>
               The backend uses JSON for normal API responses and HTTP-only
               cookies for authentication sessions.
+            </p>
+            <p>
+              Replace <code>https://backend-url.example.com</code> everywhere
+              with the deployed backend domain.
             </p>
           </section>
 
@@ -442,6 +460,14 @@ export async function apiRequest&lt;T&gt;(
                 <tr>
                   <td>Frontend requirement</td>
                   <td><code>credentials: "include"</code></td>
+                </tr>
+                <tr>
+                  <td>Production frontend origin</td>
+                  <td><code>https://hrms-product-i2k7.vercel.app</code></td>
+                </tr>
+                <tr>
+                  <td>Production cookie behavior</td>
+                  <td><code>secure: true</code> and <code>sameSite: "none"</code></td>
                 </tr>
               </tbody>
             </table>
@@ -573,25 +599,103 @@ export async function apiRequest&lt;T&gt;(
               <span class="method">GET</span> /api/auth/google
             </p>
             <p class="endpoint">
+              <span class="method">GET</span> /auth/google/login
+            </p>
+            <p class="endpoint">
               <span class="method">GET</span> /api/auth/google/callback
             </p>
+            <p class="endpoint">
+              <span class="method">GET</span> /auth/google/callback
+            </p>
+            <p class="endpoint">
+              <span class="method">POST</span> /api/auth/google/callback
+            </p>
+            <p class="endpoint">
+              <span class="method">POST</span> /auth/google/callback
+            </p>
             <h3>Frontend Usage</h3>
-            <pre><code>window.location.href = "http://localhost:4000/api/auth/google";</code></pre>
+            <pre><code>window.location.href = "https://backend-url.example.com/auth/google/login";</code></pre>
             <h3>With Remember Me</h3>
-            <pre><code>window.location.href = "http://localhost:4000/api/auth/google?rememberMe=true";</code></pre>
+            <pre><code>window.location.href = "https://backend-url.example.com/auth/google/login?rememberMe=true";</code></pre>
+            <h3>Backend-only OAuth Setup</h3>
+            <pre><code>Google Authorized redirect URI:
+https://backend-url.example.com/auth/google/callback</code></pre>
+            <p>
+              In this flow the frontend only redirects the browser to the backend.
+              The backend sends the user to Google, receives the callback, creates
+              the Redis-backed session cookie, then redirects to
+              <code>FRONTEND_AUTH_SUCCESS_URL</code>.
+            </p>
+            <h3>Frontend Callback Exchange</h3>
+            <pre><code>const params = new URLSearchParams(window.location.search);
+
+await apiRequest("/auth/google/callback", {
+  method: "POST",
+  body: JSON.stringify({
+    code: params.get("code"),
+    state: params.get("state"),
+  }),
+});</code></pre>
             <h3>Flow</h3>
             <ol>
-              <li>Frontend redirects to <code>/api/auth/google</code>.</li>
+              <li>Frontend redirects to <code>/auth/google/login</code>.</li>
               <li>Backend stores OAuth <code>state</code> in the Redis session.</li>
-              <li>Google redirects to <code>/api/auth/google/callback</code>.</li>
+              <li>Google redirects to the backend <code>GOOGLE_CALLBACK_URL</code>.</li>
               <li>
                 Backend validates <code>state</code>, exchanges the OAuth code,
                 verifies the email, and creates the app session.
               </li>
-              <li>
-                Backend redirects to <code>FRONTEND_AUTH_SUCCESS_URL</code>.
-              </li>
+              <li>Backend redirects to <code>FRONTEND_AUTH_SUCCESS_URL</code>.</li>
             </ol>
+            <h3>Current Vercel Frontend</h3>
+            <pre><code>window.location.href = "https://backend-url.example.com/auth/google/login";</code></pre>
+            <p>After success, backend redirects to:</p>
+            <pre><code>https://hrms-product-i2k7.vercel.app/dashboard</code></pre>
+
+            <h3>Google Cloud Console Setup</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Google setting</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>OAuth client type</td>
+                  <td>Web application</td>
+                </tr>
+                <tr>
+                  <td>Authorized JavaScript origins</td>
+                  <td>
+                    <code>https://hrms-product-i2k7.vercel.app</code><br />
+                    <code>https://backend-url.example.com</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Authorized redirect URI</td>
+                  <td><code>https://backend-url.example.com/auth/google/callback</code></td>
+                </tr>
+                <tr>
+                  <td>Optional frontend callback URI</td>
+                  <td><code>https://hrms-product-i2k7.vercel.app/auth/google/callback</code></td>
+                </tr>
+                <tr>
+                  <td>Project ID</td>
+                  <td><code>hirex-497006</code></td>
+                </tr>
+                <tr>
+                  <td>Client ID</td>
+                  <td><code>633915875767-4url3hm953v6mdeguch9cr15e1v2e016.apps.googleusercontent.com</code></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="note warning">
+              <p>
+                Never commit the Google client secret. Store it only as
+                <code>GOOGLE_CLIENT_SECRET</code> in deployment environment variables.
+              </p>
+            </div>
           </section>
 
           <section id="session">
@@ -600,10 +704,16 @@ export async function apiRequest&lt;T&gt;(
             <p class="endpoint">
               <span class="method">GET</span> /api/auth/me
             </p>
+            <p class="endpoint">
+              <span class="method">GET</span> /auth/me
+            </p>
             <pre><code>const session = await apiRequest&lt;{ data: { user: unknown } }&gt;("/auth/me");</code></pre>
             <h3>Refresh Session</h3>
             <p class="endpoint">
               <span class="method">POST</span> /api/auth/refresh
+            </p>
+            <p class="endpoint">
+              <span class="method">POST</span> /auth/refresh
             </p>
             <p>
               This currently returns the active session user and requires an
@@ -612,6 +722,9 @@ export async function apiRequest&lt;T&gt;(
             <h3>Logout</h3>
             <p class="endpoint">
               <span class="method">POST</span> /api/auth/logout
+            </p>
+            <p class="endpoint">
+              <span class="method">POST</span> /auth/logout
             </p>
             <pre><code>await apiRequest("/auth/logout", {
   method: "POST",
@@ -671,20 +784,51 @@ limit?: number</code></pre>
 
           <section id="environment">
             <h2>Environment Required For API Usage</h2>
+            <h3>Local Development Example</h3>
             <pre><code>DATABASE_URL=postgres://user:password@localhost:5432/zylosis_hrms
 REDIS_URL=redis://localhost:6379
 SESSION_SECRET=replace-with-a-minimum-32-character-session-secret
 SESSION_NAME=hrms.sid
 PORT=4000
 NODE_ENV=development
-CORS_ORIGIN=http://localhost:5173
+CORS_ORIGIN=http://localhost:5173,https://hrms-product-i2k7.vercel.app
 
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_CALLBACK_URL=http://localhost:4000/api/auth/google/callback
-FRONTEND_AUTH_SUCCESS_URL=http://localhost:5173/dashboard
-FRONTEND_AUTH_FAILURE_URL=http://localhost:5173/login?error=google_auth_failed
-FRONTEND_EMAIL_VERIFIED_URL=http://localhost:5173/login?verified=true
+GOOGLE_CLIENT_ID=633915875767-4url3hm953v6mdeguch9cr15e1v2e016.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=rotate-this-secret-and-set-it-only-in-env
+GOOGLE_AUTH_URL=https://accounts.google.com/o/oauth2/v2/auth
+GOOGLE_TOKEN_URL=https://oauth2.googleapis.com/token
+GOOGLE_USERINFO_URL=https://www.googleapis.com/oauth2/v3/userinfo
+GOOGLE_CALLBACK_URL=https://backend-url.example.com/auth/google/callback
+FRONTEND_AUTH_SUCCESS_URL=https://hrms-product-i2k7.vercel.app/dashboard
+FRONTEND_AUTH_FAILURE_URL=https://hrms-product-i2k7.vercel.app/login?error=google_auth_failed
+FRONTEND_EMAIL_VERIFIED_URL=https://hrms-product-i2k7.vercel.app/login?verified=true
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=smtp-user
+SMTP_PASS=smtp-password
+MAIL_FROM=Zylosis HRMS &lt;no-reply@example.com&gt;
+EMAIL_VERIFICATION_TTL_MINUTES=30</code></pre>
+
+            <h3>Production Deployment Example</h3>
+            <pre><code>DATABASE_URL=postgres://user:password@host:5432/zylosis_hrms
+REDIS_URL=redis://user:password@host:6379
+SESSION_SECRET=use-a-long-random-secret-at-least-32-characters
+SESSION_NAME=hrms.sid
+PORT=4000
+NODE_ENV=production
+CORS_ORIGIN=https://hrms-product-i2k7.vercel.app
+
+GOOGLE_CLIENT_ID=633915875767-4url3hm953v6mdeguch9cr15e1v2e016.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=set-this-in-hosting-env-only
+GOOGLE_AUTH_URL=https://accounts.google.com/o/oauth2/v2/auth
+GOOGLE_TOKEN_URL=https://oauth2.googleapis.com/token
+GOOGLE_USERINFO_URL=https://www.googleapis.com/oauth2/v3/userinfo
+GOOGLE_CALLBACK_URL=https://backend-url.example.com/auth/google/callback
+FRONTEND_AUTH_SUCCESS_URL=https://hrms-product-i2k7.vercel.app/dashboard
+FRONTEND_AUTH_FAILURE_URL=https://hrms-product-i2k7.vercel.app/login?error=google_auth_failed
+FRONTEND_EMAIL_VERIFIED_URL=https://hrms-product-i2k7.vercel.app/login?verified=true
+
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -694,6 +838,22 @@ MAIL_FROM=Zylosis HRMS &lt;no-reply@example.com&gt;
 EMAIL_VERIFICATION_TTL_MINUTES=30</code></pre>
           </section>
 
+          <section id="deployment">
+            <h2>Deployment Checklist</h2>
+            <ol>
+              <li>Deploy backend and set the real backend URL.</li>
+              <li>Set <code>NODE_ENV=production</code>.</li>
+              <li>Set <code>CORS_ORIGIN=https://hrms-product-i2k7.vercel.app</code>.</li>
+              <li>Set <code>GOOGLE_CALLBACK_URL=https://&lt;backend-domain&gt;/auth/google/callback</code>.</li>
+              <li>Add the same callback URL in Google Cloud Console.</li>
+              <li>Set <code>FRONTEND_AUTH_SUCCESS_URL=https://hrms-product-i2k7.vercel.app/dashboard</code>.</li>
+              <li>Set <code>FRONTEND_AUTH_FAILURE_URL=https://hrms-product-i2k7.vercel.app/login?error=google_auth_failed</code>.</li>
+              <li>Configure Redis and Postgres.</li>
+              <li>Configure SMTP for verification emails.</li>
+              <li>Rotate any exposed Google client secret and store the new value only in hosting env variables.</li>
+            </ol>
+          </section>
+
           <section id="verification">
             <h2>Local Verification</h2>
             <pre><code>cd Backend
@@ -701,6 +861,31 @@ npm run build
 npm run test</code></pre>
             <p>Run Redis and Postgres before starting the server:</p>
             <pre><code>npm run dev</code></pre>
+          </section>
+
+          <section id="docs-hosting">
+            <h2>Docs Hosting And Push Scripts</h2>
+            <p>HTML API docs live at:</p>
+            <pre><code>docs/index.html</code></pre>
+            <p>Docs-only public repo:</p>
+            <pre><code>git@github.com:pankajsainiofficial/url_pages.git</code></pre>
+            <p>Expected GitHub Pages URL:</p>
+            <pre><code>https://pankajsainiofficial.github.io/url_pages/</code></pre>
+
+            <h3>Push only API docs</h3>
+            <pre><code>npm run push:docs</code></pre>
+
+            <h3>Push only backend code</h3>
+            <pre><code>npm run push:code</code></pre>
+
+            <h3>Push backend code and API docs</h3>
+            <pre><code>npm run push:split</code></pre>
+
+            <h3>Override defaults</h3>
+            <pre><code>DOCS_REPO=git@github.com:pankajsainiofficial/url_pages.git \
+DOCS_BRANCH=main \
+DOCS_COMMIT_MESSAGE="Update API docs" \
+npm run push:docs</code></pre>
           </section>
 
           <footer>
