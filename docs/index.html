@@ -734,8 +734,9 @@ await apiRequest("/auth/google/callback", {
           <section id="resources">
             <h2>Resource Routes</h2>
             <p>
-              These module routes are scaffolded with a consistent CRUD shape
-              and are ready for real repository implementations.
+              These module routes follow a consistent resource shape. Some
+              resources, such as employees, also expose domain-specific
+              endpoints documented below.
             </p>
             <div class="routes">
               <code>/api/organizations</code>
@@ -775,11 +776,170 @@ limit?: number</code></pre>
             <pre><code>await apiRequest("/employees", {
   method: "POST",
   body: JSON.stringify({
+    employeeId: "EMP-1024",
     firstName: "Asha",
     lastName: "Mehta",
     email: "asha@example.com",
+    phone: "+91 9876543210",
+    department: "Engineering",
+    designation: "Frontend Developer",
+    employmentType: "Full Time",
+    joiningDate: "2026-05-24",
   }),
 });</code></pre>
+          </section>
+
+          <section id="employee-apis">
+            <h2>Employee APIs</h2>
+            <h3>List Employees</h3>
+            <p class="endpoint">
+              <span class="method">GET</span> /api/employees
+            </p>
+            <p>
+              Returns employee cards/profile records for the dashboard employee
+              page.
+            </p>
+            <h4>Query Parameters</h4>
+            <pre><code>organizationId?: number
+search?: string
+page?: number
+limit?: number</code></pre>
+            <pre><code>const response = await apiRequest("/employees?page=1&limit=20");</code></pre>
+
+            <h3>Get Employee By ID</h3>
+            <p class="endpoint">
+              <span class="method">GET</span> /api/employees/:id
+            </p>
+            <p>Returns one employee record by database ID.</p>
+            <pre><code>const employee = await apiRequest("/employees/12");</code></pre>
+
+            <h3>Create Employee From Dashboard</h3>
+            <p class="endpoint">
+              <span class="method">POST</span> /api/employees
+            </p>
+            <p>
+              Creates an employee directly from the authenticated dashboard
+              flow. Department and designation names are looked up or created
+              automatically.
+            </p>
+            <pre><code>{
+  "employeeId": "EMP-1024",
+  "firstName": "Asha",
+  "lastName": "Mehta",
+  "email": "asha@example.com",
+  "phone": "+91 9876543210",
+  "dob": "1998-04-10",
+  "gender": "Female",
+  "department": "Engineering",
+  "designation": "Frontend Developer",
+  "employmentType": "Full Time",
+  "joiningDate": "2026-05-24",
+  "manager": "Ravi Sharma",
+  "status": "Active",
+  "workLocation": "Gurgaon Office",
+  "panNumber": "ABCDE1234F",
+  "bankName": "HDFC Bank",
+  "accountNumber": "1234567890",
+  "ifscCode": "HDFC0000211",
+  "ctc": "1200000",
+  "address": "Sector 44",
+  "city": "Gurgaon",
+  "state": "Haryana",
+  "postalCode": "122001",
+  "emergencyName": "Neha Mehta",
+  "emergencyRelation": "Sister",
+  "emergencyPhone": "+91 9876500000"
+}</code></pre>
+
+            <h3>Create Employee Self-Service Form Link</h3>
+            <p class="endpoint">
+              <span class="method">POST</span> /api/employees/share-form
+            </p>
+            <p>
+              Creates a tokenized link for the "Share Candidate Form"
+              dashboard action. This does not bypass the dashboard; it only
+              creates a separate self-fill form link that can later submit to
+              the backend.
+            </p>
+            <p><strong>Authentication:</strong> requires an authenticated admin session.</p>
+            <pre><code>{
+  "recipientEmail": "asha@example.com",
+  "recipientName": "Asha Mehta",
+  "expiresInDays": 7
+}</code></pre>
+            <h4>Response Data</h4>
+            <pre><code>{
+  "id": 1,
+  "token": "generated-token",
+  "url": "https://hrms-product-i2k7.vercel.app/employee/self-service?token=generated-token",
+  "status": "active",
+  "expiresAt": "2026-05-31T00:00:00.000Z",
+  "recipientEmail": "asha@example.com",
+  "recipientName": "Asha Mehta"
+}</code></pre>
+            <h4>Frontend Usage</h4>
+            <pre><code>const link = await apiRequest("/employees/share-form", {
+  method: "POST",
+  body: JSON.stringify({
+    recipientEmail: "asha@example.com",
+    recipientName: "Asha Mehta",
+    expiresInDays: 7,
+  }),
+});</code></pre>
+
+            <h3>Get Employee Self-Service Form Configuration</h3>
+            <p class="endpoint">
+              <span class="method">GET</span> /api/employees/share-form/:token
+            </p>
+            <p>
+              Public endpoint used by the separate self-fill form page. It
+              validates the token and returns form metadata, organization
+              details, recipient details, expiry, and the field list to render.
+            </p>
+            <pre><code>{
+  "token": "generated-token",
+  "expiresAt": "2026-05-31T00:00:00.000Z",
+  "recipientEmail": "asha@example.com",
+  "recipientName": "Asha Mehta",
+  "organization": {
+    "id": 1,
+    "name": "Zylosis",
+    "logoUrl": null
+  },
+  "fields": ["firstName", "lastName", "email", "employeeId"]
+}</code></pre>
+
+            <h3>Submit Employee Self-Service Form</h3>
+            <p class="endpoint">
+              <span class="method">POST</span> /api/employees/share-form/:token/submit
+            </p>
+            <p>
+              Public endpoint used by the separate self-fill form page. It
+              creates the employee under the organization attached to the link
+              and marks the link as submitted so it cannot be reused.
+            </p>
+            <p>
+              Request body uses the same employee fields as dashboard employee
+              creation, except <code>organizationId</code> is not accepted from
+              the public form.
+            </p>
+            <pre><code>await apiRequest(`/employees/share-form/${token}/submit`, {
+  method: "POST",
+  body: JSON.stringify({
+    employeeId: "EMP-1024",
+    firstName: "Asha",
+    lastName: "Mehta",
+    email: "asha@example.com",
+    phone: "+91 9876543210",
+    department: "Engineering",
+    designation: "Frontend Developer",
+    joiningDate: "2026-05-24",
+  }),
+});</code></pre>
+            <h4>Token Validation Rules</h4>
+            <pre><code>status must be active
+token must not be expired
+token must not already be submitted</code></pre>
           </section>
 
           <section id="environment">
@@ -802,6 +962,8 @@ GOOGLE_CALLBACK_URL=https://backend-url.example.com/auth/google/callback
 FRONTEND_AUTH_SUCCESS_URL=https://hrms-product-i2k7.vercel.app/dashboard
 FRONTEND_AUTH_FAILURE_URL=https://hrms-product-i2k7.vercel.app/login?error=google_auth_failed
 FRONTEND_EMAIL_VERIFIED_URL=https://hrms-product-i2k7.vercel.app/login?verified=true
+EMPLOYEE_SELF_SERVICE_FORM_URL=https://hrms-product-i2k7.vercel.app/employee/self-service
+EMPLOYEE_SELF_SERVICE_FORM_TTL_DAYS=7
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -828,6 +990,8 @@ GOOGLE_CALLBACK_URL=https://backend-url.example.com/auth/google/callback
 FRONTEND_AUTH_SUCCESS_URL=https://hrms-product-i2k7.vercel.app/dashboard
 FRONTEND_AUTH_FAILURE_URL=https://hrms-product-i2k7.vercel.app/login?error=google_auth_failed
 FRONTEND_EMAIL_VERIFIED_URL=https://hrms-product-i2k7.vercel.app/login?verified=true
+EMPLOYEE_SELF_SERVICE_FORM_URL=https://hrms-product-i2k7.vercel.app/employee/self-service
+EMPLOYEE_SELF_SERVICE_FORM_TTL_DAYS=7
 
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
@@ -848,6 +1012,7 @@ EMAIL_VERIFICATION_TTL_MINUTES=30</code></pre>
               <li>Add the same callback URL in Google Cloud Console.</li>
               <li>Set <code>FRONTEND_AUTH_SUCCESS_URL=https://hrms-product-i2k7.vercel.app/dashboard</code>.</li>
               <li>Set <code>FRONTEND_AUTH_FAILURE_URL=https://hrms-product-i2k7.vercel.app/login?error=google_auth_failed</code>.</li>
+              <li>Set <code>EMPLOYEE_SELF_SERVICE_FORM_URL</code> to the hosted self-fill employee form URL.</li>
               <li>Configure Redis and Postgres.</li>
               <li>Configure SMTP for verification emails.</li>
               <li>Rotate any exposed Google client secret and store the new value only in hosting env variables.</li>
