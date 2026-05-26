@@ -311,11 +311,12 @@
           <a href="#fetch-helper">Frontend Fetch Helper</a>
           <a href="#authentication">Authentication</a>
           <a href="#register">Register</a>
-          <a href="#verify-email">Verify Email</a>
+          <a href="#verify-email">Verify Email OTP</a>
           <a href="#login">Login</a>
           <a href="#google-login">Google Login</a>
           <a href="#session">Session APIs</a>
           <a href="#resources">Resource Routes</a>
+          <a href="#recruitment-apis">Recruitment APIs</a>
           <a href="#environment">Environment</a>
           <a href="#deployment">Deployment</a>
           <a href="#verification">Local Verification</a>
@@ -480,9 +481,10 @@ export async function apiRequest&lt;T&gt;(
             </p>
             <p>
               Registration does not create the database account immediately. It
-              stores a short-lived pending registration in Redis, sends an email
-              verification link, and returns <code>202 Accepted</code>. The
-              organization and user rows are created only after verification.
+              stores a short-lived pending registration in Redis, sends a 6
+              digit email OTP, and returns <code>202 Accepted</code>. The
+              organization and user rows are created only after the OTP is
+              verified.
             </p>
             <h3>Request</h3>
             <pre><code>{
@@ -506,31 +508,44 @@ export async function apiRequest&lt;T&gt;(
             <h3>Response</h3>
             <pre><code>{
   "success": true,
-  "message": "Verification email sent. Please verify your email to complete registration.",
+  "message": "Verification OTP sent. Please verify your email to complete registration.",
   "data": {
     "email": "admin@acme.com",
     "expiresInMinutes": 30
   }
 }</code></pre>
+            <h3>Postman / Curl Test</h3>
+            <pre><code>curl -X POST http://localhost:4000/api/auth/register \
+  -H "Content-Type: application/json" \
+  --data-raw '{
+    "organizationName": "Zylosis Test Company",
+    "organizationEmail": "admin@example.com",
+    "password": "Test@123456",
+    "termsAccepted": true,
+    "rememberMe": true
+  }'</code></pre>
           </section>
 
           <section id="verify-email">
-            <h2>Verify Email</h2>
+            <h2>Verify Email OTP</h2>
             <p class="endpoint">
-              <span class="method">GET</span>
-              /api/auth/verify-email?token=&lt;verification-token&gt;
+              <span class="method">POST</span> /api/auth/verify-email
             </p>
-            <p>The verification link is sent to the registering user's email.</p>
+            <p>
+              Verifies the 6 digit OTP sent during registration and creates the
+              organization owner account.
+            </p>
+            <h3>Request</h3>
+            <pre><code>{
+  "email": "admin@acme.com",
+  "otp": "123456"
+}</code></pre>
             <ul>
               <li>Backend creates the organization and owner user.</li>
               <li>Backend deletes the pending registration from Redis.</li>
               <li>Backend creates the same HTTP-only session cookie used by login.</li>
-              <li>
-                Backend redirects to <code>FRONTEND_EMAIL_VERIFIED_URL</code>
-                when configured.
-              </li>
             </ul>
-            <h3>JSON Response When No Redirect Is Configured</h3>
+            <h3>Response</h3>
             <pre><code>{
   "success": true,
   "message": "Email verified and account created successfully",
@@ -552,6 +567,25 @@ export async function apiRequest&lt;T&gt;(
     }
   }
 }</code></pre>
+            <h3>Postman / Curl Test</h3>
+            <pre><code>curl -X POST http://localhost:4000/api/auth/verify-email \
+  -H "Content-Type: application/json" \
+  --data-raw '{
+    "email": "admin@example.com",
+    "otp": "123456"
+  }'</code></pre>
+
+            <h3>Legacy Verify Email Link</h3>
+            <p class="endpoint">
+              <span class="method">GET</span>
+              /api/auth/verify-email?token=&lt;verification-token&gt;
+            </p>
+            <p>
+              This route is kept for backward compatibility. When the token is
+              valid, the backend creates the account, creates the session cookie,
+              and redirects to <code>FRONTEND_EMAIL_VERIFIED_URL</code> when
+              configured.
+            </p>
           </section>
 
           <section id="login">
@@ -942,6 +976,122 @@ token must not be expired
 token must not already be submitted</code></pre>
           </section>
 
+          <section id="recruitment-apis">
+            <h2>Recruitment APIs</h2>
+            <h3>Generate Job Description</h3>
+            <p class="endpoint">
+              <span class="method">POST</span>
+              /api/recruitment/job-descriptions/generate
+            </p>
+            <p>
+              Generates a company-standard job description from the JD
+              Generation screen fields. If <code>LLM_API_KEY</code> is
+              configured, the backend tries the LLM provider first. If the
+              provider is unavailable or not configured, the backend returns a
+              built-in company-standard template so the feature remains usable.
+            </p>
+            <h3>Request</h3>
+            <pre><code>{
+  "title": "Senior Frontend Developer",
+  "department": "Engineering",
+  "experience": "Senior",
+  "employmentType": "Full-time",
+  "workMode": "Hybrid",
+  "roleFocus": "Build product UI",
+  "roleLevel": "Individual Contributor",
+  "companyStage": "Startup",
+  "jdStyle": "Company Standard",
+  "location": "Gurgaon",
+  "salaryRange": "15-22 LPA",
+  "openings": "2",
+  "noticePeriod": "30 Days",
+  "education": "Bachelors Degree",
+  "industry": "SaaS",
+  "reportingTo": "Engineering Manager",
+  "interviewProcess": "3 Rounds",
+  "experienceYears": "4-6 Years",
+  "hiringPriority": "High",
+  "shiftTiming": "General",
+  "skills": ["React", "TypeScript"],
+  "techStack": ["React", "Node.js"],
+  "benefits": ["Health Insurance"],
+  "customInstructions": "Mention ownership and collaboration."
+}</code></pre>
+            <h3>Response</h3>
+            <pre><code>{
+  "success": true,
+  "message": "Job description generated",
+  "data": {
+    "template": "company-standard",
+    "provider": "template",
+    "document": {
+      "title": "Senior Frontend Developer",
+      "summary": "This is a company-standard job description for a Senior Frontend Developer role in Engineering, optimized for clarity, candidate readability, and hiring team alignment.",
+      "metadata": [
+        "Engineering",
+        "Hybrid",
+        "Full-time",
+        "Gurgaon",
+        "15-22 LPA",
+        "4-6 Years"
+      ],
+      "sections": [
+        {
+          "heading": "About the Role",
+          "body": "We are looking for a Senior Frontend Developer to join our Engineering team."
+        },
+        {
+          "heading": "Key Responsibilities",
+          "bullets": [
+            "Lead execution for build product UI within the Engineering function."
+          ]
+        }
+      ]
+    },
+    "rawText": "# Senior Frontend Developer\nEngineering | Hybrid | Full-time | Gurgaon | 15-22 LPA | 4-6 Years\n\n...",
+    "generatedAt": "2026-05-26T16:16:30.474Z"
+  }
+}</code></pre>
+            <p>
+              <code>provider</code> is <code>llm</code> when the configured LLM
+              returns a valid response, otherwise <code>template</code>.
+            </p>
+            <h3>Frontend Usage</h3>
+            <pre><code>await apiRequest("/recruitment/job-descriptions/generate", {
+  method: "POST",
+  body: JSON.stringify(payload),
+});</code></pre>
+            <h3>Postman / Curl Test</h3>
+            <pre><code>curl -X POST http://localhost:4000/api/recruitment/job-descriptions/generate \
+  -H "Content-Type: application/json" \
+  --data-raw '{
+    "title": "Senior Frontend Developer",
+    "department": "Engineering",
+    "experience": "Senior",
+    "employmentType": "Full-time",
+    "workMode": "Hybrid",
+    "roleFocus": "Build product UI",
+    "roleLevel": "Individual Contributor",
+    "companyStage": "Startup",
+    "jdStyle": "Company Standard",
+    "location": "Gurgaon",
+    "salaryRange": "15-22 LPA",
+    "openings": "2",
+    "noticePeriod": "30 Days",
+    "education": "Bachelors Degree",
+    "industry": "SaaS",
+    "reportingTo": "Engineering Manager",
+    "interviewProcess": "3 Rounds",
+    "experienceYears": "4-6 Years",
+    "hiringPriority": "High",
+    "shiftTiming": "General",
+    "skills": ["React", "TypeScript"],
+    "techStack": ["React", "Node.js"],
+    "benefits": ["Health Insurance"],
+    "customInstructions": "Mention ownership and collaboration."
+  }'</code></pre>
+          </section>
+
           <section id="environment">
             <h2>Environment Required For API Usage</h2>
             <h3>Local Development Example</h3>
@@ -951,7 +1101,7 @@ SESSION_SECRET=replace-with-a-minimum-32-character-session-secret
 SESSION_NAME=hrms.sid
 PORT=4000
 NODE_ENV=development
-CORS_ORIGIN=http://localhost:5173,https://hrms-product-i2k7.vercel.app
+CORS_ORIGIN=http://localhost:5173,http://localhost:5174,https://hrms-product-i2k7.vercel.app
 
 GOOGLE_CLIENT_ID=633915875767-4url3hm953v6mdeguch9cr15e1v2e016.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=rotate-this-secret-and-set-it-only-in-env
@@ -964,13 +1114,24 @@ FRONTEND_AUTH_FAILURE_URL=https://hrms-product-i2k7.vercel.app/login?error=googl
 FRONTEND_EMAIL_VERIFIED_URL=https://hrms-product-i2k7.vercel.app/login?verified=true
 EMPLOYEE_SELF_SERVICE_FORM_URL=https://hrms-product-i2k7.vercel.app/employee/self-service
 EMPLOYEE_SELF_SERVICE_FORM_TTL_DAYS=7
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=smtp-user
-SMTP_PASS=smtp-password
-MAIL_FROM=Zylosis HRMS &lt;no-reply@example.com&gt;
-EMAIL_VERIFICATION_TTL_MINUTES=30</code></pre>
+SMTP_HOST=smtppro.zoho.in
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=yourname@yourdomain.com
+SMTP_PASS=your-zoho-app-password
+MAIL_FROM=Zylosis HRMS &lt;yourname@yourdomain.com&gt;
+EMAIL_VERIFICATION_TTL_MINUTES=30
+LLM_API_KEY=
+LLM_API_URL=https://api.openai.com/v1/chat/completions
+LLM_MODEL=gpt-4o-mini</code></pre>
+
+            <h3>Zoho SMTP Notes</h3>
+            <ul>
+              <li>Use <code>smtppro.zoho.in</code> for paid/professional India-region Zoho domain mail.</li>
+              <li>Use the full mailbox address in <code>SMTP_USER</code>.</li>
+              <li>If Zoho 2FA is enabled, use an app-specific password in <code>SMTP_PASS</code>.</li>
+              <li><code>MAIL_FROM</code> should match <code>SMTP_USER</code> or a verified Zoho alias.</li>
+            </ul>
 
             <h3>Production Deployment Example</h3>
             <pre><code>DATABASE_URL=postgres://user:password@host:5432/zylosis_hrms
@@ -993,13 +1154,16 @@ FRONTEND_EMAIL_VERIFIED_URL=https://hrms-product-i2k7.vercel.app/login?verified=
 EMPLOYEE_SELF_SERVICE_FORM_URL=https://hrms-product-i2k7.vercel.app/employee/self-service
 EMPLOYEE_SELF_SERVICE_FORM_TTL_DAYS=7
 
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=smtp-user
-SMTP_PASS=smtp-password
-MAIL_FROM=Zylosis HRMS &lt;no-reply@example.com&gt;
-EMAIL_VERIFICATION_TTL_MINUTES=30</code></pre>
+SMTP_HOST=smtppro.zoho.in
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=yourname@yourdomain.com
+SMTP_PASS=set-this-in-hosting-env-only
+MAIL_FROM=Zylosis HRMS &lt;yourname@yourdomain.com&gt;
+EMAIL_VERIFICATION_TTL_MINUTES=30
+LLM_API_KEY=set-this-in-hosting-env-only
+LLM_API_URL=https://api.openai.com/v1/chat/completions
+LLM_MODEL=gpt-4o-mini</code></pre>
           </section>
 
           <section id="deployment">
