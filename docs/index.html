@@ -773,6 +773,16 @@ await apiRequest("/auth/google/callback", {
               resources, such as employees and HR inbox, also expose
               domain-specific endpoints documented below.
             </p>
+            <div class="note">
+              <p>
+                Protected feature APIs are organization isolated. The backend
+                resolves company scope from the authenticated HR session
+                (<code>req.user.organizationId</code>) and does not trust
+                client-sent <code>organizationId</code> for tenant selection.
+                Users without an organization context cannot access protected
+                feature routes.
+              </p>
+            </div>
             <div class="routes">
               <code>/api/organizations</code>
               <code>/api/users</code>
@@ -799,13 +809,12 @@ PUT    /api/&lt;resource&gt;/:id
 DELETE /api/&lt;resource&gt;/:id</code></pre>
 
             <h3>List Query Parameters</h3>
-            <pre><code>organizationId?: number
-search?: string
+            <pre><code>search?: string
 page?: number
 limit?: number</code></pre>
 
             <h3>List Example</h3>
-            <pre><code>const employees = await apiRequest("/employees?organizationId=1&page=1&limit=20");</code></pre>
+            <pre><code>const employees = await apiRequest("/employees?page=1&limit=20");</code></pre>
 
             <h3>Create Example</h3>
             <pre><code>await apiRequest("/employees", {
@@ -1027,17 +1036,27 @@ limit?: number</code></pre>
 
           <section id="employee-apis">
             <h2>Employee APIs</h2>
+            <div class="note">
+              <p>
+                Employee APIs require an authenticated HR session and are scoped
+                to the HR user's organization. Employee IDs are unique per
+                organization, so different companies can both use values such as
+                <code>EMP-001</code>. Uploaded employee documents are stored
+                under
+                <code>organizations/organization-{id}/employees/{employeeCode}/</code>
+                in S3.
+              </p>
+            </div>
             <h3>List Employees</h3>
             <p class="endpoint">
               <span class="method">GET</span> /api/employees
             </p>
             <p>
               Returns employee cards/profile records for the dashboard employee
-              page.
+              page. The organization filter comes from the active session.
             </p>
             <h4>Query Parameters</h4>
-            <pre><code>organizationId?: number
-search?: string
+            <pre><code>search?: string
 page?: number
 limit?: number</code></pre>
             <pre><code>const response = await apiRequest("/employees?page=1&limit=20");</code></pre>
@@ -1056,7 +1075,15 @@ limit?: number</code></pre>
             <p>
               Creates an employee directly from the authenticated dashboard
               flow. Department and designation names are looked up or created
-              automatically.
+              automatically inside the authenticated HR user's organization.
+            </p>
+            <p>
+              Send JSON when no documents are selected. Send
+              <code>multipart/form-data</code> when uploading employee
+              documents. Supported upload fields are <code>photo</code>,
+              <code>resume</code>, <code>panCard</code>, and
+              <code>aadhaarCard</code>. Each file is limited to 5 MB and must
+              be an image, PDF, DOC, or DOCX file.
             </p>
             <pre><code>{
   "employeeId": "EMP-1024",
@@ -1086,6 +1113,29 @@ limit?: number</code></pre>
   "emergencyRelation": "Sister",
   "emergencyPhone": "+91 9876500000"
 }</code></pre>
+            <h4>Multipart Upload Example</h4>
+            <pre><code>const formData = new FormData();
+formData.append("employeeId", "EMP-1024");
+formData.append("firstName", "Asha");
+formData.append("lastName", "Mehta");
+formData.append("email", "asha@example.com");
+formData.append("department", "Engineering");
+formData.append("designation", "Frontend Developer");
+formData.append("photo", profilePhotoFile);
+formData.append("resume", resumeFile);
+formData.append("panCard", panCardFile);
+formData.append("aadhaarCard", aadhaarCardFile);
+
+const employee = await apiRequest("/employees", {
+  method: "POST",
+  body: formData,
+});</code></pre>
+            <h4>Document Upload Failure Rules</h4>
+            <pre><code>missing S3 config + files selected -> 400
+unsupported file type -> 400
+too large / too many files -> 400
+S3 upload failure -> 503
+DB failure after upload -> uploaded S3 objects are deleted</code></pre>
 
             <h3>Create Employee Self-Service Form Link</h3>
             <p class="endpoint">
@@ -1095,7 +1145,8 @@ limit?: number</code></pre>
               Creates a tokenized link for the "Share Candidate Form"
               dashboard action. This does not bypass the dashboard; it only
               creates a separate self-fill form link that can later submit to
-              the backend.
+              the backend. The link is bound to the authenticated HR user's
+              organization.
             </p>
             <p><strong>Authentication:</strong> requires an authenticated admin session.</p>
             <pre><code>{
@@ -1156,8 +1207,9 @@ limit?: number</code></pre>
             </p>
             <p>
               Request body uses the same employee fields as dashboard employee
-              creation, except <code>organizationId</code> is not accepted from
-              the public form.
+              creation. <code>organizationId</code> is not accepted from the
+              public form; the backend uses the organization attached to the
+              secure token.
             </p>
             <pre><code>await apiRequest(`/employees/share-form/${token}/submit`, {
   method: "POST",
@@ -1325,7 +1377,14 @@ MAIL_FROM=Zylosis HRMS &lt;yourname@yourdomain.com&gt;
 EMAIL_VERIFICATION_TTL_MINUTES=30
 LLM_API_KEY=
 LLM_API_URL=https://api.openai.com/v1/chat/completions
-LLM_MODEL=gpt-4o-mini</code></pre>
+LLM_MODEL=gpt-4o-mini
+
+S3_BUCKET=your-employee-document-bucket
+S3_REGION=ap-south-1
+ACCESS_KEY_ID=your-access-key-id
+SECREATE_KEY_ACCESS=your-secret-access-key
+CLOUDFRONT_URL=https://your-distribution.cloudfront.net
+CLOUDFRONT_KEY_PAIR_ID=optional-key-pair-id</code></pre>
 
             <h3>Zoho SMTP Notes</h3>
             <ul>
@@ -1365,7 +1424,14 @@ MAIL_FROM=Zylosis HRMS &lt;yourname@yourdomain.com&gt;
 EMAIL_VERIFICATION_TTL_MINUTES=30
 LLM_API_KEY=set-this-in-hosting-env-only
 LLM_API_URL=https://api.openai.com/v1/chat/completions
-LLM_MODEL=gpt-4o-mini</code></pre>
+LLM_MODEL=gpt-4o-mini
+
+S3_BUCKET=set-this-in-hosting-env-only
+S3_REGION=ap-south-1
+ACCESS_KEY_ID=set-this-in-hosting-env-only
+SECREATE_KEY_ACCESS=set-this-in-hosting-env-only
+CLOUDFRONT_URL=https://your-distribution.cloudfront.net
+CLOUDFRONT_KEY_PAIR_ID=optional-key-pair-id</code></pre>
           </section>
 
           <section id="deployment">
@@ -1381,6 +1447,8 @@ LLM_MODEL=gpt-4o-mini</code></pre>
               <li>Set <code>EMPLOYEE_SELF_SERVICE_FORM_URL</code> to the hosted self-fill employee form URL.</li>
               <li>Configure Redis and Postgres.</li>
               <li>Configure SMTP for verification emails.</li>
+              <li>Set S3 upload values: <code>S3_BUCKET</code>, <code>S3_REGION</code>, <code>ACCESS_KEY_ID</code>, <code>SECREATE_KEY_ACCESS</code>, and optionally <code>CLOUDFRONT_URL</code>.</li>
+              <li>Ensure S3/IAM policies isolate employee documents by <code>organizations/organization-{id}/*</code>.</li>
               <li>Rotate any exposed Google client secret and store the new value only in hosting env variables.</li>
             </ol>
           </section>
