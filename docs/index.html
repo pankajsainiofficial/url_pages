@@ -316,6 +316,7 @@
           <a href="#google-login">Google Login</a>
           <a href="#session">Session APIs</a>
           <a href="#resources">Resource Routes</a>
+          <a href="#hr-inbox-apis">HR Inbox Mailbox APIs</a>
           <a href="#recruitment-apis">Recruitment APIs</a>
           <a href="#environment">Environment</a>
           <a href="#deployment">Deployment</a>
@@ -330,8 +331,8 @@
           <h1>Production-oriented HRMS API guide for frontend integration.</h1>
           <p>
             Covers Redis-backed sessions, email verification before account
-            creation, Google OAuth, scaffold resource routes, and frontend
-            request examples.
+            creation, Google OAuth, HR inbox mailbox sync, resource routes,
+            and frontend request examples.
           </p>
         </header>
 
@@ -769,8 +770,8 @@ await apiRequest("/auth/google/callback", {
             <h2>Resource Routes</h2>
             <p>
               These module routes follow a consistent resource shape. Some
-              resources, such as employees, also expose domain-specific
-              endpoints documented below.
+              resources, such as employees and HR inbox, also expose
+              domain-specific endpoints documented below.
             </p>
             <div class="routes">
               <code>/api/organizations</code>
@@ -821,6 +822,207 @@ limit?: number</code></pre>
     joiningDate: "2026-05-24",
   }),
 });</code></pre>
+          </section>
+
+          <section id="hr-inbox-apis">
+            <h2>HR Inbox Mailbox APIs</h2>
+            <div class="note">
+              <p>
+                HR Inbox supports multiple organizations and multiple HR users
+                per organization. Each logged-in HR user can save one mailbox
+                connection. Sync reads only that HR user's mailbox and inbox
+                messages are scoped by both <code>organizationId</code> and
+                <code>recipientUserId</code>.
+              </p>
+            </div>
+
+            <h3>Data Model</h3>
+            <pre><code>organizations
+  users
+    hr_inbox_mailboxes
+      inbox_messages</code></pre>
+            <p>
+              Example: HR 1 in Organization A can connect
+              <code>hr1@gmail.com</code>, HR 2 in the same organization can
+              connect <code>hr2@company.com</code>, and both see only their own
+              synced HR emails.
+            </p>
+
+            <h3>Frontend Setup Location</h3>
+            <pre><code>Settings → Organization Settings → HR Inbox Mailbox</code></pre>
+            <p>
+              HR users enter their email provider, username, IMAP details, and
+              app password from this settings card. The Inbox page also exposes
+              a manual <code>Sync</code> action and attempts sync when opened.
+            </p>
+
+            <h3>Get Current HR Mailbox Settings</h3>
+            <p class="endpoint">
+              <span class="method">GET</span> /api/inbox/settings
+            </p>
+            <p><strong>Authentication:</strong> requires an active session.</p>
+            <pre><code>{
+  "success": true,
+  "message": "HR inbox settings fetched",
+  "data": {
+    "id": 1,
+    "organizationId": 1,
+    "userId": 2,
+    "status": "connected",
+    "lastSyncAt": "2026-05-31T17:30:00.000Z",
+    "settings": {
+      "email": "hr1@gmail.com",
+      "provider": "gmail",
+      "port": 993,
+      "secure": true,
+      "username": "hr1@gmail.com",
+      "hasAppPassword": true
+    }
+  }
+}</code></pre>
+
+            <h3>Save Current HR Mailbox Settings</h3>
+            <p class="endpoint">
+              <span class="method">PUT</span> /api/inbox/settings
+            </p>
+            <p>
+              Saves mailbox settings for the logged-in HR user only. If
+              <code>appPassword</code> is omitted during an update, the
+              existing saved app password is kept.
+            </p>
+            <pre><code>{
+  "email": "hr1@gmail.com",
+  "provider": "gmail",
+  "username": "hr1@gmail.com",
+  "appPassword": "gmail-app-password",
+  "port": 993,
+  "secure": true
+}</code></pre>
+
+            <h4>Provider Defaults</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th>Default IMAP Host</th>
+                  <th>Port</th>
+                  <th>Secure</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>gmail</code></td>
+                  <td><code>imap.gmail.com</code></td>
+                  <td>993</td>
+                  <td>true</td>
+                </tr>
+                <tr>
+                  <td><code>outlook</code> / <code>office365</code></td>
+                  <td><code>outlook.office365.com</code></td>
+                  <td>993</td>
+                  <td>true</td>
+                </tr>
+                <tr>
+                  <td><code>yahoo</code></td>
+                  <td><code>imap.mail.yahoo.com</code></td>
+                  <td>993</td>
+                  <td>true</td>
+                </tr>
+                <tr>
+                  <td><code>custom</code></td>
+                  <td>Provide <code>host</code></td>
+                  <td>Usually 993</td>
+                  <td>true</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3>Sync Current HR Mailbox</h3>
+            <p class="endpoint">
+              <span class="method">POST</span> /api/inbox/sync
+            </p>
+            <p>
+              Connects to the logged-in HR user's mailbox, fetches unread
+              emails from INBOX, parses sender/subject/body, filters HR-related
+              content, saves matching emails, and marks processed mailbox
+              emails as seen.
+            </p>
+            <pre><code>{
+  "success": true,
+  "message": "HR inbox sync checked",
+  "data": {
+    "synced": true,
+    "fetched": 8,
+    "saved": 3,
+    "ignored": 5
+  }
+}</code></pre>
+
+            <h3>List HR Inbox Messages</h3>
+            <p class="endpoint">
+              <span class="method">GET</span> /api/inbox/messages
+            </p>
+            <p>
+              Returns only messages for the logged-in HR user. The frontend
+              Inbox page uses this API instead of static demo data.
+            </p>
+            <h4>Query Parameters</h4>
+            <pre><code>type?: all | leave | resignation | query | payroll | attendance | document | general
+status?: open | approved | rejected | moved | archived
+unread?: boolean
+search?: string
+page?: number
+limit?: number</code></pre>
+            <pre><code>const response = await apiRequest("/inbox/messages?type=leave&search=sick");</code></pre>
+
+            <h3>Update Inbox Message</h3>
+            <p class="endpoint">
+              <span class="method">PATCH</span> /api/inbox/messages/:id
+            </p>
+            <p>
+              Marks a message read/unread or updates workflow status. The
+              backend only updates messages owned by the logged-in HR user.
+            </p>
+            <pre><code>{
+  "unread": false,
+  "status": "approved"
+}</code></pre>
+
+            <h3>Manual Email Ingest</h3>
+            <p class="endpoint">
+              <span class="method">POST</span> /api/inbox/messages
+            </p>
+            <p>
+              Useful for testing or webhook-based providers. The backend still
+              validates that the message belongs to the logged-in HR user's
+              configured mailbox and filters non-HR emails.
+            </p>
+            <pre><code>{
+  "mailboxEmail": "hr1@gmail.com",
+  "senderName": "Asha Mehta",
+  "senderEmail": "asha@company.com",
+  "subject": "Leave Request - 5 Days",
+  "body": "I would like to request leave from Monday to Friday.",
+  "unread": true
+}</code></pre>
+
+            <h3>Filtering Rules</h3>
+            <p>
+              The backend classifies messages using HR keywords. Supported
+              categories include <code>resignation</code>, <code>leave</code>,
+              <code>payroll</code>, <code>attendance</code>,
+              <code>document</code>, <code>query</code>, and
+              <code>general</code>. Non-HR messages are ignored during ingest.
+            </p>
+
+            <div class="note warning">
+              <p>
+                Use mailbox app passwords or provider-approved credentials. Do
+                not use a normal Gmail/Outlook password. App passwords are
+                currently stored in the database and should be encrypted before
+                production use.
+              </p>
+            </div>
           </section>
 
           <section id="employee-apis">

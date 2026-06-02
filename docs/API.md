@@ -449,7 +449,7 @@ await apiRequest("/auth/logout", {
 
 ## Resource Routes
 
-These module routes follow a consistent resource shape. Some resources, such as employees, also expose domain-specific endpoints documented below.
+These module routes follow a consistent resource shape. Some resources, such as employees and HR inbox, also expose domain-specific endpoints documented below.
 
 ```text
 /api/organizations
@@ -704,6 +704,181 @@ status must be active
 token must not be expired
 token must not already be submitted
 ```
+
+## HR Inbox Mailbox APIs
+
+HR Inbox supports multiple organizations and multiple HR users per organization. Each logged-in HR user can save one mailbox connection. Sync reads only that HR user's mailbox and inbox messages are scoped by both `organizationId` and `recipientUserId`.
+
+Data model:
+
+```text
+organizations
+  users
+    hr_inbox_mailboxes
+      inbox_messages
+```
+
+Example: HR 1 in Organization A can connect `hr1@gmail.com`, HR 2 in the same organization can connect `hr2@company.com`, and both see only their own synced HR emails.
+
+Frontend setup location:
+
+```text
+Settings → Organization Settings → HR Inbox Mailbox
+```
+
+HR users enter their email provider, username, IMAP details, and app password from this settings card. The Inbox page also exposes a manual `Sync` action and attempts sync when opened.
+
+### Get Current HR Mailbox Settings
+
+```text
+GET /api/inbox/settings
+```
+
+Authentication: requires an active session.
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "HR inbox settings fetched",
+  "data": {
+    "id": 1,
+    "organizationId": 1,
+    "userId": 2,
+    "status": "connected",
+    "lastSyncAt": "2026-05-31T17:30:00.000Z",
+    "settings": {
+      "email": "hr1@gmail.com",
+      "provider": "gmail",
+      "port": 993,
+      "secure": true,
+      "username": "hr1@gmail.com",
+      "hasAppPassword": true
+    }
+  }
+}
+```
+
+### Save Current HR Mailbox Settings
+
+```text
+PUT /api/inbox/settings
+```
+
+Saves mailbox settings for the logged-in HR user only. If `appPassword` is omitted during an update, the existing saved app password is kept.
+
+Request:
+
+```json
+{
+  "email": "hr1@gmail.com",
+  "provider": "gmail",
+  "username": "hr1@gmail.com",
+  "appPassword": "gmail-app-password",
+  "port": 993,
+  "secure": true
+}
+```
+
+Provider defaults:
+
+```text
+gmail:              imap.gmail.com:993 secure=true
+outlook/office365:  outlook.office365.com:993 secure=true
+yahoo:              imap.mail.yahoo.com:993 secure=true
+custom:             provide host, port, secure
+```
+
+### Sync Current HR Mailbox
+
+```text
+POST /api/inbox/sync
+```
+
+Connects to the logged-in HR user's mailbox, fetches unread emails from INBOX, parses sender/subject/body, filters HR-related content, saves matching emails, and marks processed mailbox emails as seen.
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "HR inbox sync checked",
+  "data": {
+    "synced": true,
+    "fetched": 8,
+    "saved": 3,
+    "ignored": 5
+  }
+}
+```
+
+### List HR Inbox Messages
+
+```text
+GET /api/inbox/messages
+```
+
+Returns only messages for the logged-in HR user. The frontend Inbox page uses this API instead of static demo data.
+
+Query parameters:
+
+```text
+type?: all | leave | resignation | query | payroll | attendance | document | general
+status?: open | approved | rejected | moved | archived
+unread?: boolean
+search?: string
+page?: number
+limit?: number
+```
+
+Frontend usage:
+
+```ts
+const response = await apiRequest("/inbox/messages?type=leave&search=sick");
+```
+
+### Update Inbox Message
+
+```text
+PATCH /api/inbox/messages/:id
+```
+
+Marks a message read/unread or updates workflow status. The backend only updates messages owned by the logged-in HR user.
+
+Request:
+
+```json
+{
+  "unread": false,
+  "status": "approved"
+}
+```
+
+### Manual Email Ingest
+
+```text
+POST /api/inbox/messages
+```
+
+Useful for testing or webhook-based providers. The backend still validates that the message belongs to the logged-in HR user's configured mailbox and filters non-HR emails.
+
+Request:
+
+```json
+{
+  "mailboxEmail": "hr1@gmail.com",
+  "senderName": "Asha Mehta",
+  "senderEmail": "asha@company.com",
+  "subject": "Leave Request - 5 Days",
+  "body": "I would like to request leave from Monday to Friday.",
+  "unread": true
+}
+```
+
+Filtering categories include `resignation`, `leave`, `payroll`, `attendance`, `document`, `query`, and `general`. Non-HR messages are ignored during ingest.
+
+Security note: use mailbox app passwords or provider-approved credentials. Do not use a normal Gmail/Outlook password. App passwords are currently stored in the database and should be encrypted before production use.
 
 ## Recruitment APIs
 
