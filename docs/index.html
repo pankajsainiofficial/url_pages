@@ -1054,7 +1054,24 @@ limit?: number</code></pre>
             <p>
               Returns employee cards/profile records for the dashboard employee
               page. The organization filter comes from the active session.
+              This endpoint intentionally returns a lightweight list shape;
+              use <code>GET /api/employees/:id</code> for full employee
+              profile, payroll, banking, address, emergency, and document URL
+              details.
             </p>
+            <h4>Response Fields</h4>
+            <pre><code>id
+employeeCode
+firstName
+lastName
+email
+phone
+department
+designation
+joiningDate
+workLocation
+status
+profilePhotoUrl</code></pre>
             <h4>Query Parameters</h4>
             <pre><code>search?: string
 page?: number
@@ -1065,7 +1082,57 @@ limit?: number</code></pre>
             <p class="endpoint">
               <span class="method">GET</span> /api/employees/:id
             </p>
-            <p>Returns one employee record by database ID.</p>
+            <p>
+              Returns the employee drawer/sidebar detail shape only. The
+              response excludes internal organization IDs, relation IDs, and
+              timestamps.
+            </p>
+            <h4>Response Fields</h4>
+            <pre><code>id
+employeeCode
+firstName
+lastName
+email
+personalEmail
+phone
+dob
+gender
+maritalStatus
+bloodGroup
+nationality
+department
+designation
+employmentType
+joiningDate
+workLocation
+experience
+shift
+branch
+manager
+status
+address
+city
+state
+postalCode
+panNumber
+aadhaarNumber
+bankName
+accountNumber
+ifscCode
+ctc
+salary
+emergencyContactName
+emergencyContactRelation
+emergencyContactPhone
+qualification
+university
+passingYear
+skills
+notes
+profilePhotoUrl
+resumeUrl
+panCardUrl
+aadhaarCardUrl</code></pre>
             <pre><code>const employee = await apiRequest("/employees/12");</code></pre>
 
             <h3>Create Employee From Dashboard</h3>
@@ -1101,6 +1168,7 @@ limit?: number</code></pre>
   "status": "Active",
   "workLocation": "Gurgaon Office",
   "panNumber": "ABCDE1234F",
+  "aadhaarNumber": "123456789012",
   "bankName": "HDFC Bank",
   "accountNumber": "1234567890",
   "ifscCode": "HDFC0000211",
@@ -1136,6 +1204,59 @@ unsupported file type -> 400
 too large / too many files -> 400
 S3 upload failure -> 503
 DB failure after upload -> uploaded S3 objects are deleted</code></pre>
+
+            <h3>Update Employee From Drawer</h3>
+            <p class="endpoint">
+              <span class="method">PUT</span> /api/employees/:id
+            </p>
+            <p>
+              Updates the employee selected in the drawer. The employee lookup
+              and update are both scoped to the authenticated HR user's
+              organization, so an HR user cannot update another company's
+              employee even if they know the numeric ID.
+            </p>
+            <p>
+              Send any subset of the create employee fields. Send JSON for
+              normal field updates, or <code>multipart/form-data</code> when
+              replacing <code>photo</code>, <code>resume</code>,
+              <code>panCard</code>, or <code>aadhaarCard</code>. Replaced S3
+              files are deleted after the database update succeeds.
+            </p>
+            <pre><code>await apiRequest("/employees/12", {
+  method: "PUT",
+  body: {
+    designation: "Senior Frontend Developer",
+    salary: "95000",
+    manager: "Ravi Sharma",
+    notes: "Promoted in Q2"
+  }
+});</code></pre>
+            <h4>Update Failure Rules</h4>
+            <pre><code>employee not in current organization -> 404
+duplicate employeeId/employeeCode in same organization -> 409
+unsupported file type -> 400
+too large / too many files -> 400
+S3 upload failure -> 503
+DB failure after upload -> newly uploaded S3 objects are deleted
+old document cleanup failure -> update still succeeds</code></pre>
+
+            <h3>Delete Employee From Drawer</h3>
+            <p class="endpoint">
+              <span class="method">DELETE</span> /api/employees/:id
+            </p>
+            <p>
+              Deletes the selected employee only when it belongs to the
+              authenticated HR user's organization. Stored employee document
+              URLs are removed from S3 on a best-effort basis after the
+              database delete succeeds.
+            </p>
+            <pre><code>await apiRequest("/employees/12", {
+  method: "DELETE"
+});</code></pre>
+            <h4>Delete Failure Rules</h4>
+            <pre><code>employee not in current organization -> 404
+database delete failure -> employee remains unchanged
+document cleanup failure -> delete response still succeeds</code></pre>
 
             <h3>Create Employee Self-Service Form Link</h3>
             <p class="endpoint">
