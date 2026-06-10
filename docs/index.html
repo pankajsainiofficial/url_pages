@@ -1216,18 +1216,83 @@ DB failure after upload -> uploaded S3 objects are deleted</code></pre>
               employee even if they know the numeric ID.
             </p>
             <p>
-              Send any subset of the create employee fields. Send JSON for
+              Send any subset of the create employee fields. The employee
+              drawer can update every displayed profile, contact, employment,
+              salary, banking, identity, address, education, and notes field.
+              Blank optional values are saved as cleared fields. Send JSON for
               normal field updates, or <code>multipart/form-data</code> when
               replacing <code>photo</code>, <code>resume</code>,
               <code>panCard</code>, or <code>aadhaarCard</code>. Replaced S3
               files are deleted after the database update succeeds.
             </p>
+            <p>
+              The preferred request keys are the same keys used by the edit
+              drawer draft: <code>employeeId</code>, <code>firstName</code>,
+              <code>lastName</code>, <code>email</code>,
+              <code>personalEmail</code>, <code>phone</code>,
+              <code>dob</code>, <code>gender</code>,
+              <code>maritalStatus</code>, <code>bloodGroup</code>,
+              <code>nationality</code>, <code>department</code>,
+              <code>designation</code>, <code>joiningDate</code>,
+              <code>employmentType</code>, <code>status</code>,
+              <code>workLocation</code>, <code>shift</code>,
+              <code>branch</code>, <code>manager</code>,
+              <code>experience</code>, <code>salary</code>,
+              <code>bankName</code>, <code>accountNumber</code>,
+              <code>ifscCode</code>, <code>panNumber</code>,
+              <code>aadhaarNumber</code>, <code>address</code>,
+              <code>city</code>, <code>state</code>,
+              <code>postalCode</code>, <code>emergencyName</code>,
+              <code>emergencyRelation</code>, <code>emergencyPhone</code>,
+              <code>qualification</code>, <code>university</code>,
+              <code>passingYear</code>, <code>skills</code>, and
+              <code>notes</code>.
+            </p>
+            <p>
+              For compatibility with employee detail responses and older
+              clients, update also accepts aliases:
+              <code>location</code> for <code>workLocation</code>,
+              <code>pincode</code> for <code>postalCode</code>,
+              <code>ifsc</code> for <code>ifscCode</code>,
+              <code>pan</code> for <code>panNumber</code>,
+              <code>aadhar</code> or <code>aadhaar</code> for
+              <code>aadhaarNumber</code>, and
+              <code>emergencyContactName</code>,
+              <code>emergencyContactRelation</code>, and
+              <code>emergencyContactPhone</code> for the emergency contact
+              fields.
+            </p>
             <pre><code>await apiRequest("/employees/12", {
   method: "PUT",
   body: {
+    employeeId: "EMP-1024",
+    firstName: "Asha",
+    lastName: "Mehta",
+    email: "asha@example.com",
+    phone: "+91 9876543210",
+    department: "Engineering",
     designation: "Senior Frontend Developer",
+    employmentType: "Full Time",
+    status: "Active",
+    workLocation: "Gurgaon Office",
     salary: "95000",
     manager: "Ravi Sharma",
+    bankName: "HDFC Bank",
+    accountNumber: "1234567890",
+    ifscCode: "HDFC0000211",
+    panNumber: "ABCDE1234F",
+    aadhaarNumber: "123456789012",
+    address: "Sector 44",
+    city: "Gurgaon",
+    state: "Haryana",
+    postalCode: "122001",
+    emergencyName: "Neha Mehta",
+    emergencyRelation: "Sister",
+    emergencyPhone: "+91 9876500000",
+    qualification: "B.Tech",
+    university: "Delhi University",
+    passingYear: "2020",
+    skills: "React, TypeScript",
     notes: "Promoted in Q2"
   }
 });</code></pre>
@@ -1501,7 +1566,7 @@ LLM_API_URL=https://api.openai.com/v1/chat/completions
 LLM_MODEL=gpt-4o-mini
 
 S3_BUCKET=your-employee-document-bucket
-S3_REGION=ap-south-1
+S3_REGION=your-bucket-region
 ACCESS_KEY_ID=your-access-key-id
 SECREATE_KEY_ACCESS=your-secret-access-key
 CLOUDFRONT_URL=https://your-distribution.cloudfront.net
@@ -1548,11 +1613,42 @@ LLM_API_URL=https://api.openai.com/v1/chat/completions
 LLM_MODEL=gpt-4o-mini
 
 S3_BUCKET=set-this-in-hosting-env-only
-S3_REGION=ap-south-1
+S3_REGION=your-bucket-region
 ACCESS_KEY_ID=set-this-in-hosting-env-only
 SECREATE_KEY_ACCESS=set-this-in-hosting-env-only
 CLOUDFRONT_URL=https://your-distribution.cloudfront.net
 CLOUDFRONT_KEY_PAIR_ID=optional-key-pair-id</code></pre>
+            <h3>S3 Employee Document Upload Notes</h3>
+            <p>
+              <code>S3_REGION</code> must match the real bucket region. If the
+              backend logs <code>PermanentRedirect</code> or HTTP
+              <code>301</code>, the bucket is being addressed through the
+              wrong regional endpoint. For the current
+              <code>hrms-employee-documents</code> bucket, the region is
+              <code>eu-north-1</code>.
+            </p>
+            <p>
+              If the backend logs <code>AccessDenied</code> or HTTP
+              <code>403</code>, the access key is valid enough to reach S3 but
+              does not have permission to write the employee document object.
+              Grant the backend IAM user or role permission for the employee
+              document prefix:
+            </p>
+            <pre><code>{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::hrms-employee-documents/organizations/*"
+    }
+  ]
+}</code></pre>
+            <p>
+              Also check the bucket policy for explicit denies, especially
+              encryption requirements. The backend uploads employee documents
+              with <code>ServerSideEncryption: "AES256"</code>.
+            </p>
           </section>
 
           <section id="deployment">
@@ -1568,8 +1664,8 @@ CLOUDFRONT_KEY_PAIR_ID=optional-key-pair-id</code></pre>
               <li>Set <code>EMPLOYEE_SELF_SERVICE_FORM_URL</code> to the hosted self-fill employee form URL.</li>
               <li>Configure Redis and Postgres.</li>
               <li>Configure SMTP for verification emails.</li>
-              <li>Set S3 upload values: <code>S3_BUCKET</code>, <code>S3_REGION</code>, <code>ACCESS_KEY_ID</code>, <code>SECREATE_KEY_ACCESS</code>, and optionally <code>CLOUDFRONT_URL</code>.</li>
-              <li>Ensure S3/IAM policies isolate employee documents by <code>organizations/organization-{id}/*</code>.</li>
+              <li>Set S3 upload values: <code>S3_BUCKET</code>, the bucket's real <code>S3_REGION</code>, <code>ACCESS_KEY_ID</code>, <code>SECREATE_KEY_ACCESS</code>, and optionally <code>CLOUDFRONT_URL</code>.</li>
+              <li>Ensure S3/IAM policies allow writes and deletes only under <code>organizations/organization-{id}/*</code> or another approved employee document prefix.</li>
               <li>Rotate any exposed Google client secret and store the new value only in hosting env variables.</li>
             </ol>
           </section>
