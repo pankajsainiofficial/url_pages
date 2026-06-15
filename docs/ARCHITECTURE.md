@@ -8,28 +8,35 @@ This backend is structured for a growing HRMS product where each frontend featur
 
 ```text
 src/
-  app.ts                  Express app composition
+  bootstrap/
+    app.ts                Express app composition
   server.ts               HTTP server bootstrap
-  common/
+  api/
+    middleware/           HTTP middleware such as auth and errors
+    routes/               API route composition and edge route modules
+  features/
+    <feature>/            route/controller/service/repository ownership
+  shared/
     errors/               AppError and error helpers
     http/                 response helpers and async handler
+    crud/                 generic CRUD router scaffolding and resource registry
     types/                shared Express request context
     validation/           reusable Zod schemas and middleware
-  config/                 environment parsing
+    logger.ts             shared logger
+  infrastructure/
+    config/               environment parsing, sessions, Redis
+    llm/                  LLM provider adapters
+    mail/                 external mail delivery adapter
+    storage/              file/object storage adapters
   db/
     client.ts             Drizzle + pg pool
     schema.ts             complete PostgreSQL schema
     migrations/           generated Drizzle migrations
     seeds/                seed scripts
-  middleware/             auth and error middleware
-  modules/
-    <feature>/            route/controller/service/repository ownership
-  routes/
-    index.ts              API route composition
   tests/                  automated tests
 ```
 
-## Module Boundaries
+## Feature Boundaries
 
 Each module owns one frontend-facing business area:
 
@@ -51,8 +58,8 @@ Each module owns one frontend-facing business area:
 ```text
 HTTP request
   -> app middleware
-  -> routes/index.ts
-  -> module route
+  -> api/routes/index.ts
+  -> feature route
   -> validation middleware
   -> controller
   -> service
@@ -65,6 +72,9 @@ HTTP request
 - Controllers handle HTTP input/output only.
 - Services own business rules and orchestration.
 - Repositories own database queries.
+- Feature code should depend on ports/interfaces when it needs external systems.
+- Concrete adapters live in `infrastructure/`.
+- Feature `*.dependencies.ts` files are the allowed composition boundary between feature code and infrastructure adapters.
 - Validation is done with Zod before controller logic.
 - Responses use `{ success, message, data, meta }`.
 - Throw `AppError` for expected API errors.

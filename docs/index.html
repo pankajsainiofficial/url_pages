@@ -1530,6 +1530,302 @@ token must not already be submitted</code></pre>
     "benefits": ["Health Insurance"],
     "customInstructions": "Mention ownership and collaboration."
   }'</code></pre>
+
+            <h3>Candidate Job Portal Flow</h3>
+            <p>
+              This flow keeps job discovery public, but applying requires a
+              candidate profile with a resume already uploaded. The apply action
+              only marks the candidate as interested for that job. It does not
+              ask for another application form because the resume URL and parsed
+              resume data belong to the candidate profile.
+            </p>
+            <ol>
+              <li>Employer generates a JD from the JD Generation screen.</li>
+              <li>Employer publishes the job.</li>
+              <li>Published jobs appear on the candidate job portal.</li>
+              <li>Candidate can view the jobs list and job detail publicly.</li>
+              <li>
+                Candidate must log in or register before applying to any job.
+              </li>
+              <li>
+                Candidate uploads resume once from the profile/header upload
+                action.
+              </li>
+              <li>
+                Uploaded resume is saved against candidate data with the resume
+                S3 URL. Resume parsing can run later in a backend worker.
+              </li>
+              <li>
+                Candidate clicks Apply. Backend creates one interested
+                application for that candidate and job.
+              </li>
+              <li>
+                Employer can open the job and see the actual candidates who
+                applied, not only the applicant count.
+              </li>
+            </ol>
+
+            <h3>Published Jobs And Apply APIs</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>Endpoint</th>
+                  <th>Use Case</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td><code>/api/jobs</code></td>
+                  <td>Public candidate portal jobs list. Returns published jobs only.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td><code>/api/jobs/:id</code></td>
+                  <td>Public job detail for the selected published job.</td>
+                </tr>
+                <tr>
+                  <td><code>POST</code></td>
+                  <td><code>/api/jobs</code></td>
+                  <td>Authenticated employer creates or publishes a job.</td>
+                </tr>
+                <tr>
+                  <td><code>POST</code></td>
+                  <td><code>/api/jobs/:id/apply</code></td>
+                  <td>Candidate marks interest for a job using profile and resume data.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td><code>/api/jobs/employer</code></td>
+                  <td>Employer jobs page list. Returns only jobs owned by the employer organization.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td><code>/api/jobs/employer/:id</code></td>
+                  <td>Employer jobs page detail. Called only after employer clicks a job.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td><code>/api/jobs/:id/applications</code></td>
+                  <td>Employer can fetch candidates who applied to a specific job.</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h4>Apply Request</h4>
+            <pre><code>{
+  "firstName": "Amit",
+  "lastName": "Sharma",
+  "email": "amit@example.com",
+  "phone": "+91 9876543210",
+  "location": "Gurgaon",
+  "currentCompany": "Acme",
+  "experienceYears": "3",
+  "resumeUrl": "https://cdn.example.com/resumes/amit.pdf",
+  "resumeFileName": "amit.pdf"
+}</code></pre>
+            <h4>Apply Response</h4>
+            <pre><code>{
+  "success": true,
+  "message": "Interest marked",
+  "data": {
+    "id": "a69c6d35-b390-45a0-b27d-597635a62d07",
+    "status": "interested",
+    "appliedAt": "2026-06-15T10:30:00.000Z"
+  }
+}</code></pre>
+            <h4>Apply Failure Cases</h4>
+            <pre><code>400 resumeUrl is required before applying
+400 invalid request body
+404 job not found or not published
+200 existing candidate application is reused or updated on repeat apply
+500 unexpected backend failure</code></pre>
+
+            <h3>Recruitment Pipeline Use Case</h3>
+            <p>
+              The recruitment pipeline page loads only open/published employer
+              roles first. It does not fetch every job detail or every
+              application on initial page load. Detailed data is fetched only
+              after the employer clicks the matching job or candidate.
+            </p>
+            <ol>
+              <li>
+                Page load calls <code>GET /api/recruitment/open-roles</code>
+                to show open roles.
+              </li>
+              <li>
+                Employer clicks a role. Frontend calls
+                <code>GET /api/recruitment/jobs/:jobId/applicants</code>.
+              </li>
+              <li>
+                Employer clicks an applicant. Frontend calls
+                <code>GET /api/recruitment/applications/:applicationId/detail</code>.
+              </li>
+              <li>
+                Candidate profile, resume link, evaluation summary, and hiring
+                process timeline are rendered from the selected application
+                detail response.
+              </li>
+            </ol>
+
+            <h3>Recruitment Pipeline APIs</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>Endpoint</th>
+                  <th>Use Case</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td><code>/api/recruitment/open-roles</code></td>
+                  <td>Authenticated employer fetches open roles for the pipeline first column.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td><code>/api/recruitment/jobs/:jobId/applicants</code></td>
+                  <td>Fetch applicants for one selected employer-owned job.</td>
+                </tr>
+                <tr>
+                  <td><code>GET</code></td>
+                  <td><code>/api/recruitment/applications/:applicationId/detail</code></td>
+                  <td>Fetch one selected candidate application with candidate and resume data.</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p class="note">
+              Public API IDs are UUID strings, for example
+              <code>a69c6d35-b390-45a0-b27d-597635a62d07</code>. Do not send
+              internal numeric database IDs from the frontend. Run migration
+              <code>0008_candidate_application_public_uuid.sql</code> before
+              using these APIs on an existing database.
+            </p>
+
+            <h4>Open Roles Response</h4>
+            <pre><code>{
+  "success": true,
+  "message": "Open roles fetched",
+  "data": [
+    {
+      "id": "a69c6d35-b390-45a0-b27d-597635a62d07",
+      "title": "Frontend Engineer",
+      "count": 6,
+      "applicantsCount": 6,
+      "department": "Engineering",
+      "location": "Remote",
+      "status": "Open",
+      "workMode": "Remote",
+      "jobType": "Full-time",
+      "experience": "2-4 Years",
+      "publishedAt": "2026-06-15T10:30:00.000Z"
+    }
+  ]
+}</code></pre>
+
+            <h4>Applicants Response</h4>
+            <pre><code>{
+  "success": true,
+  "message": "Job applicants fetched",
+  "data": {
+    "job": {
+      "id": "a69c6d35-b390-45a0-b27d-597635a62d07",
+      "title": "Frontend Engineer",
+      "status": "Open"
+    },
+    "applicants": [
+      {
+        "id": "b89fdb6e-1f80-4d8e-8b9f-1b43177e3a8f",
+        "candidateId": "02bb11d0-7762-4d9c-91ef-9a35a6f2f41d",
+        "name": "Amit Sharma",
+        "stage": "Applied",
+        "role": "Frontend Engineer",
+        "experience": "3 years",
+        "score": 82,
+        "appliedAt": "2026-06-15T10:30:00.000Z",
+        "email": "amit@example.com",
+        "phone": "+91 9876543210",
+        "location": "Gurgaon",
+        "resumeUrl": "https://cdn.example.com/resumes/amit.pdf"
+      }
+    ]
+  }
+}</code></pre>
+
+            <h4>Application Detail Response</h4>
+            <pre><code>{
+  "success": true,
+  "message": "Application detail fetched",
+  "data": {
+    "id": "b89fdb6e-1f80-4d8e-8b9f-1b43177e3a8f",
+    "status": "interested",
+    "stage": "Applied",
+    "score": 82,
+    "resumeUrl": "https://cdn.example.com/resumes/amit.pdf",
+    "job": {
+      "id": "a69c6d35-b390-45a0-b27d-597635a62d07",
+      "title": "Frontend Engineer",
+      "status": "Open"
+    },
+    "candidate": {
+      "id": "02bb11d0-7762-4d9c-91ef-9a35a6f2f41d",
+      "name": "Amit Sharma",
+      "email": "amit@example.com",
+      "phone": "+91 9876543210",
+      "location": "Gurgaon",
+      "experience": "3 years",
+      "profileSummary": "Candidate summary will appear after resume parsing is complete.",
+      "skills": [
+        {
+          "name": "React",
+          "proficiency": null
+        }
+      ]
+    },
+    "evaluationInsights": [],
+    "hiringProcess": [
+      {
+        "id": "fc59b184-2f04-47d4-a0eb-09d93c0ab8d1",
+        "stage": "Applied",
+        "fromStatus": null,
+        "toStatus": "interested",
+        "note": "Candidate marked interest from job portal.",
+        "changedAt": "2026-06-15T10:30:00.000Z"
+      }
+    ]
+  }
+}</code></pre>
+
+            <h4>Recruitment Failure Cases</h4>
+            <pre><code>400 invalid UUID route parameter
+401 authentication token is missing or invalid
+403 authenticated user has no employer organization context
+404 job or application was not found for this organization
+200 empty applicants list when no candidate has applied yet</code></pre>
+
+            <h4>Frontend Usage</h4>
+            <pre><code>const roles = await apiRequest("/recruitment/open-roles");
+
+const applicants = await apiRequest(
+  `/recruitment/jobs/${job.id}/applicants`
+);
+
+const detail = await apiRequest(
+  `/recruitment/applications/${applicant.id}/detail`
+);</code></pre>
+
+            <h4>Postman / Curl Tests</h4>
+            <pre><code>curl -X GET http://localhost:4000/api/recruitment/open-roles \
+  -H "Authorization: Bearer &lt;token&gt;"
+
+curl -X GET http://localhost:4000/api/recruitment/jobs/a69c6d35-b390-45a0-b27d-597635a62d07/applicants \
+  -H "Authorization: Bearer &lt;token&gt;"
+
+curl -X GET http://localhost:4000/api/recruitment/applications/b89fdb6e-1f80-4d8e-8b9f-1b43177e3a8f/detail \
+  -H "Authorization: Bearer &lt;token&gt;"</code></pre>
           </section>
 
           <section id="environment">
