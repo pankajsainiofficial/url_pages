@@ -858,18 +858,40 @@ limit?: number</code></pre>
             </p>
 
             <h3>Frontend Setup Location</h3>
-            <pre><code>Settings → Organization Settings → HR Inbox Mailbox</code></pre>
+            <pre><code>Settings - Organization Settings - HR Inbox Mailbox</code></pre>
             <p>
               HR users enter their email provider, username, IMAP details, and
               app password from this settings card. The Inbox page also exposes
               a manual <code>Sync</code> action and attempts sync when opened.
             </p>
 
+            <h3>Common Rules</h3>
+            <ul>
+              <li>Every endpoint below requires the logged-in session cookie.</li>
+              <li>The frontend must call these APIs with <code>credentials: "include"</code>.</li>
+              <li>The backend resolves <code>organizationId</code> and <code>userId</code> from the session.</li>
+              <li>Do not send <code>organizationId</code>, <code>userId</code>, or <code>recipientUserId</code> from the frontend.</li>
+              <li>The saved <code>appPassword</code> is never returned in API responses.</li>
+            </ul>
+
             <h3>Get Current HR Mailbox Settings</h3>
             <p class="endpoint">
               <span class="method">GET</span> /api/inbox/settings
             </p>
-            <p><strong>Authentication:</strong> requires an active session.</p>
+            <p>
+              Use this when the settings page opens. It returns the current
+              logged-in HR user's mailbox connection, or <code>null</code> when
+              that HR user has not configured a mailbox yet.
+            </p>
+            <h4>Request</h4>
+            <pre><code>No request body.</code></pre>
+            <h4>Frontend Usage</h4>
+            <pre><code>const response = await apiRequest("/inbox/settings", {
+  method: "GET",
+});
+
+const mailbox = response.data;</code></pre>
+            <h4>Response - Settings Exist</h4>
             <pre><code>{
   "success": true,
   "message": "HR inbox settings fetched",
@@ -879,15 +901,22 @@ limit?: number</code></pre>
     "userId": 2,
     "status": "connected",
     "lastSyncAt": "2026-05-31T17:30:00.000Z",
-    "settings": {
-      "email": "hr1@gmail.com",
-      "provider": "gmail",
-      "port": 993,
-      "secure": true,
-      "username": "hr1@gmail.com",
+      "settings": {
+        "email": "hr1@gmail.com",
+        "provider": "gmail",
+        "host": "imap.gmail.com",
+        "port": 993,
+        "secure": true,
+        "username": "hr1@gmail.com",
       "hasAppPassword": true
     }
   }
+}</code></pre>
+            <h4>Response - Not Configured Yet</h4>
+            <pre><code>{
+  "success": true,
+  "message": "HR inbox settings fetched",
+  "data": null
 }</code></pre>
 
             <h3>Save Current HR Mailbox Settings</h3>
@@ -899,13 +928,96 @@ limit?: number</code></pre>
               <code>appPassword</code> is omitted during an update, the
               existing saved app password is kept.
             </p>
+            <h4>Request Body</h4>
             <pre><code>{
   "email": "hr1@gmail.com",
   "provider": "gmail",
-  "username": "hr1@gmail.com",
-  "appPassword": "gmail-app-password",
+  "host": "imap.gmail.com",
   "port": 993,
-  "secure": true
+  "secure": true,
+  "username": "hr1@gmail.com",
+  "appPassword": "gmail-app-password"
+}</code></pre>
+            <h4>Request Fields</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Required</th>
+                  <th>Usage</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>email</code></td>
+                  <td>Yes</td>
+                  <td>The HR mailbox address that receives employee emails.</td>
+                </tr>
+                <tr>
+                  <td><code>provider</code></td>
+                  <td>No</td>
+                  <td>Provider key such as <code>gmail</code>, <code>outlook</code>, <code>office365</code>, <code>yahoo</code>, or <code>custom</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>host</code></td>
+                  <td>No</td>
+                  <td>IMAP host. Required for custom providers when no known provider default exists.</td>
+                </tr>
+                <tr>
+                  <td><code>port</code></td>
+                  <td>No</td>
+                  <td>IMAP port. Usually <code>993</code> for secure IMAP.</td>
+                </tr>
+                <tr>
+                  <td><code>secure</code></td>
+                  <td>No</td>
+                  <td>Whether IMAP uses TLS. Defaults to secure provider behavior.</td>
+                </tr>
+                <tr>
+                  <td><code>username</code></td>
+                  <td>No</td>
+                  <td>Mailbox login username. If omitted, sync uses <code>email</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>appPassword</code></td>
+                  <td>No on update</td>
+                  <td>Provider app password. Omit it when editing non-secret settings to keep the previous saved value.</td>
+                </tr>
+              </tbody>
+            </table>
+            <h4>Frontend Usage</h4>
+            <pre><code>await apiRequest("/inbox/settings", {
+  method: "PUT",
+  body: JSON.stringify({
+    email: "hr1@gmail.com",
+    provider: "gmail",
+    host: "imap.gmail.com",
+    port: 993,
+    secure: true,
+    username: "hr1@gmail.com",
+    appPassword: "gmail-app-password",
+  }),
+});</code></pre>
+            <h4>Response</h4>
+            <pre><code>{
+  "success": true,
+  "message": "HR inbox settings saved",
+  "data": {
+    "id": 1,
+    "organizationId": 1,
+    "userId": 2,
+    "status": "connected",
+    "lastSyncAt": null,
+    "settings": {
+      "email": "hr1@gmail.com",
+      "provider": "gmail",
+      "host": "imap.gmail.com",
+      "port": 993,
+      "secure": true,
+      "username": "hr1@gmail.com",
+      "hasAppPassword": true
+    }
+  }
 }</code></pre>
 
             <h4>Provider Defaults</h4>
@@ -956,6 +1068,15 @@ limit?: number</code></pre>
               content, saves matching emails, and marks processed mailbox
               emails as seen.
             </p>
+            <h4>Request</h4>
+            <pre><code>No request body.</code></pre>
+            <h4>Frontend Usage</h4>
+            <pre><code>const response = await apiRequest("/inbox/sync", {
+  method: "POST",
+});
+
+const { fetched, saved, ignored } = response.data;</code></pre>
+            <h4>Response</h4>
             <pre><code>{
   "success": true,
   "message": "HR inbox sync checked",
@@ -965,6 +1086,19 @@ limit?: number</code></pre>
     "saved": 3,
     "ignored": 5
   }
+}</code></pre>
+            <h4>Common Error Responses</h4>
+            <pre><code>{
+  "success": false,
+  "message": "HR inbox email is not configured"
+}</code></pre>
+            <pre><code>{
+  "success": false,
+  "message": "Mailbox host or provider is not configured. Save Gmail, Outlook, or custom IMAP settings before syncing."
+}</code></pre>
+            <pre><code>{
+  "success": false,
+  "message": "Mailbox app password is not configured"
 }</code></pre>
 
             <h3>List HR Inbox Messages</h3>
@@ -976,13 +1110,99 @@ limit?: number</code></pre>
               Inbox page uses this API instead of static demo data.
             </p>
             <h4>Query Parameters</h4>
-            <pre><code>type?: all | leave | resignation | query | payroll | attendance | document | general
-status?: open | approved | rejected | moved | archived
-unread?: boolean
-search?: string
-page?: number
-limit?: number</code></pre>
-            <pre><code>const response = await apiRequest("/inbox/messages?type=leave&search=sick");</code></pre>
+            <table>
+              <thead>
+                <tr>
+                  <th>Parameter</th>
+                  <th>Allowed Values</th>
+                  <th>Usage</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>type</code></td>
+                  <td><code>all</code>, <code>leave</code>, <code>resignation</code>, <code>query</code>, <code>payroll</code>, <code>attendance</code>, <code>document</code>, <code>general</code></td>
+                  <td>Filter by inbox category. Defaults to <code>all</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>status</code></td>
+                  <td><code>open</code>, <code>approved</code>, <code>rejected</code>, <code>moved</code>, <code>archived</code></td>
+                  <td>Filter by workflow status.</td>
+                </tr>
+                <tr>
+                  <td><code>unread</code></td>
+                  <td><code>true</code> or <code>false</code></td>
+                  <td>Filter read/unread messages.</td>
+                </tr>
+                <tr>
+                  <td><code>search</code></td>
+                  <td>Text</td>
+                  <td>Searches subject, sender name, sender email, and body.</td>
+                </tr>
+                <tr>
+                  <td><code>page</code></td>
+                  <td>Positive number</td>
+                  <td>Page number. Defaults to <code>1</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>limit</code></td>
+                  <td>1 to 100</td>
+                  <td>Items per page. Defaults to <code>20</code>.</td>
+                </tr>
+              </tbody>
+            </table>
+            <h4>Request Example</h4>
+            <pre><code>GET /api/inbox/messages?type=leave&amp;status=open&amp;unread=true&amp;search=sick&amp;page=1&amp;limit=20</code></pre>
+            <h4>Frontend Usage</h4>
+            <pre><code>const params = new URLSearchParams({
+  type: "leave",
+  status: "open",
+  unread: "true",
+  search: "sick",
+  page: "1",
+  limit: "20",
+});
+
+const response = await apiRequest(`/inbox/messages?${params.toString()}`);
+const messages = response.data;
+const pagination = response.meta;</code></pre>
+            <h4>Response</h4>
+            <pre><code>{
+  "success": true,
+  "message": "HR inbox messages fetched",
+  "data": [
+    {
+      "id": 101,
+      "organizationId": 1,
+      "mailboxId": 1,
+      "senderName": "Asha Mehta",
+      "senderEmail": "asha@company.com",
+      "subject": "Sick leave request",
+      "body": "I need sick leave for two days.",
+      "type": "leave",
+      "status": "open",
+      "unread": true,
+      "relatedEmployeeId": 44,
+      "relatedEmployeeFirstName": "Asha",
+      "relatedEmployeeLastName": "Mehta",
+      "relatedEmployeeEmail": "asha@company.com",
+      "createdAt": "2026-06-16T09:15:00.000Z",
+      "updatedAt": "2026-06-16T09:15:00.000Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}</code></pre>
+            <h4>Alias Route</h4>
+            <pre><code>GET /api/inbox</code></pre>
+            <p>
+              <code>GET /api/inbox</code> accepts the same query parameters and
+              returns the same response as <code>GET /api/inbox/messages</code>.
+            </p>
 
             <h3>Update Inbox Message</h3>
             <p class="endpoint">
@@ -992,9 +1212,68 @@ limit?: number</code></pre>
               Marks a message read/unread or updates workflow status. The
               backend only updates messages owned by the logged-in HR user.
             </p>
+            <h4>Request Body</h4>
             <pre><code>{
   "unread": false,
   "status": "approved"
+}</code></pre>
+            <h4>Request Fields</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Required</th>
+                  <th>Usage</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>unread</code></td>
+                  <td>No</td>
+                  <td>Set to <code>false</code> when opening a message, or <code>true</code> to mark it unread again.</td>
+                </tr>
+                <tr>
+                  <td><code>status</code></td>
+                  <td>No</td>
+                  <td>Allowed values: <code>open</code>, <code>approved</code>, <code>rejected</code>, <code>moved</code>, <code>archived</code>.</td>
+                </tr>
+              </tbody>
+            </table>
+            <h4>Frontend Usage</h4>
+            <pre><code>const response = await apiRequest(`/inbox/messages/${messageId}`, {
+  method: "PATCH",
+  body: JSON.stringify({
+    unread: false,
+    status: "approved",
+  }),
+});
+
+const updatedMessage = response.data;</code></pre>
+            <h4>Response</h4>
+            <pre><code>{
+  "success": true,
+  "message": "Inbox message updated",
+  "data": {
+    "id": 101,
+    "organizationId": 1,
+    "mailboxId": 1,
+    "senderName": "Asha Mehta",
+    "senderEmail": "asha@company.com",
+    "recipientUserId": 2,
+    "subject": "Sick leave request",
+    "body": "I need sick leave for two days.",
+    "type": "leave",
+    "status": "approved",
+    "unread": false,
+    "relatedEmployeeId": 44,
+    "createdAt": "2026-06-16T09:15:00.000Z",
+    "updatedAt": "2026-06-16T09:20:00.000Z"
+  }
+}</code></pre>
+            <h4>Not Found Response</h4>
+            <pre><code>{
+  "success": false,
+  "message": "Inbox message not found"
 }</code></pre>
 
             <h3>Manual Email Ingest</h3>
@@ -1006,6 +1285,7 @@ limit?: number</code></pre>
               validates that the message belongs to the logged-in HR user's
               configured mailbox and filters non-HR emails.
             </p>
+            <h4>Request Body</h4>
             <pre><code>{
   "mailboxEmail": "hr1@gmail.com",
   "senderName": "Asha Mehta",
@@ -1013,6 +1293,100 @@ limit?: number</code></pre>
   "subject": "Leave Request - 5 Days",
   "body": "I would like to request leave from Monday to Friday.",
   "unread": true
+}</code></pre>
+            <h4>Request Fields</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Required</th>
+                  <th>Usage</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>mailboxEmail</code></td>
+                  <td>No</td>
+                  <td>Optional recipient mailbox. If present, it must match the logged-in HR user's configured mailbox email.</td>
+                </tr>
+                <tr>
+                  <td><code>senderName</code></td>
+                  <td>No</td>
+                  <td>Name shown in the inbox sender column.</td>
+                </tr>
+                <tr>
+                  <td><code>senderEmail</code></td>
+                  <td>Yes</td>
+                  <td>Email address of the employee or external sender.</td>
+                </tr>
+                <tr>
+                  <td><code>subject</code></td>
+                  <td>No</td>
+                  <td>Email subject. Defaults to <code>No subject</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>body</code></td>
+                  <td>Yes</td>
+                  <td>Email body text. Must not be empty.</td>
+                </tr>
+                <tr>
+                  <td><code>unread</code></td>
+                  <td>No</td>
+                  <td>Whether the new inbox message should appear unread. Defaults to <code>true</code>.</td>
+                </tr>
+              </tbody>
+            </table>
+            <h4>Frontend Usage</h4>
+            <pre><code>const response = await apiRequest("/inbox/messages", {
+  method: "POST",
+  body: JSON.stringify({
+    mailboxEmail: "hr1@gmail.com",
+    senderName: "Asha Mehta",
+    senderEmail: "asha@company.com",
+    subject: "Leave Request - 5 Days",
+    body: "I would like to request leave from Monday to Friday.",
+    unread: true,
+  }),
+});</code></pre>
+            <h4>Response - Saved</h4>
+            <pre><code>{
+  "success": true,
+  "message": "Email saved to HR inbox",
+  "data": {
+    "id": 102,
+    "organizationId": 1,
+    "mailboxId": 1,
+    "senderName": "Asha Mehta",
+    "senderEmail": "asha@company.com",
+    "recipientUserId": 2,
+    "subject": "Leave Request - 5 Days",
+    "body": "I would like to request leave from Monday to Friday.",
+    "type": "leave",
+    "status": "open",
+    "unread": true,
+    "relatedEmployeeId": 44,
+    "createdAt": "2026-06-16T09:25:00.000Z",
+    "updatedAt": "2026-06-16T09:25:00.000Z"
+  }
+}</code></pre>
+            <h4>Response - Ignored By Filters</h4>
+            <pre><code>{
+  "success": true,
+  "message": "Email ignored by HR inbox filters",
+  "data": {
+    "saved": false,
+    "reason": "Email does not match HR inbox filters",
+    "type": "general"
+  }
+}</code></pre>
+            <h4>Common Error Responses</h4>
+            <pre><code>{
+  "success": false,
+  "message": "HR inbox email is not configured"
+}</code></pre>
+            <pre><code>{
+  "success": false,
+  "message": "Email was not sent to the configured HR inbox mailbox"
 }</code></pre>
 
             <h3>Filtering Rules</h3>
